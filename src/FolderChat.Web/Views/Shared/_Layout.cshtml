@@ -1,0 +1,50 @@
+﻿@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    var page = ViewContext.RouteData.Values["action"]?.ToString();
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken" />
+    <title>@ViewData["Title"] · FolderChat</title>
+    <script>
+        // Apply the saved or system theme before the page paints, to avoid a flash.
+        (() => {
+            let theme = null;
+            try { theme = localStorage.getItem("folderchat.theme"); } catch { }
+            theme ??= matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+            document.documentElement.dataset.bsTheme = theme;
+        })();
+    </script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/highlight.js/styles/github.min.css" id="hljs-light" />
+    <link rel="stylesheet" href="~/lib/highlight.js/styles/github-dark.min.css" id="hljs-dark" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <nav class="app-nav navbar navbar-expand border-bottom px-3 py-1">
+        <a class="navbar-brand fw-semibold" asp-controller="Home" asp-action="Index">FolderChat</a>
+        <ul class="navbar-nav me-auto">
+            <li class="nav-item">
+                <a class="nav-link @(page == "Index" ? "active" : "")" asp-controller="Home" asp-action="Index">Chat</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(page == "Settings" ? "active" : "")" asp-controller="Home" asp-action="Settings">Settings</a>
+            </li>
+        </ul>
+        <button id="theme-toggle" class="btn btn-sm btn-outline-secondary" type="button" title="Switch light or dark theme">Theme</button>
+    </nav>
+
+    <main class="app-main">
+        @RenderBody()
+    </main>
+
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
+
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

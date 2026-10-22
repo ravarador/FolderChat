@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      ai-providers:
+        patterns: ["Anthropic", "OpenAI", "OllamaSharp", "Microsoft.Extensions.AI*"]
+      dotnet:
+        patterns: ["Microsoft.*", "System.*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -1,0 +1,45 @@
+﻿@{
+    ViewData["Title"] = "Chat";
+}
+
+<div class="chat-layout">
+    <aside class="chat-sidebar border-end">
+        <div class="p-2">
+            <button id="new-chat" class="btn btn-primary w-100" type="button">New chat</button>
+        </div>
+        <div class="px-2 pb-2">
+            <input id="conversation-search" class="form-control form-control-sm" type="search" placeholder="Search chats" aria-label="Search chats" />
+        </div>
+        <ul id="conversation-list" class="conversation-list list-unstyled px-2 mb-0" aria-label="Conversations"></ul>
+    </aside>
+
+    <section class="chat-main">
+        <header class="chat-header border-bottom">
+            <label for="model-picker" class="small text-body-secondary mb-0">Model</label>
+            <select id="model-picker" class="form-select form-select-sm model-picker"></select>
+            <span id="privacy-badge" class="badge rounded-pill d-none"></span>
+            <span id="chat-title" class="chat-title text-truncate small text-body-secondary"></span>
+        </header>
+
+        <div id="messages" class="messages" aria-live="polite"></div>
+
+        <div id="empty-state" class="empty-state d-none">
+            <h2 class="h5">Start a conversation</h2>
+            <p id="empty-state-text" class="text-body-secondary mb-0"></p>
+        </div>
+
+        <form id="composer" class="composer border-top" autocomplete="off">
+            <textarea id="prompt" class="form-control" rows="1" placeholder="Message (Enter to send, Shift+Enter for a new line)" aria-label="Message"></textarea>
+            <button id="send" class="btn btn-primary" type="submit">Send</button>
+            <button id="stop" class="btn btn-outline-danger d-none" type="button">Stop</button>
+        </form>
+    </section>
+</div>
+
+@section Scripts {
+    <script src="~/lib/marked/marked.umd.js"></script>
+    <script src="~/lib/dompurify/purify.min.js"></script>
+    <script src="~/lib/highlight.js/highlight.min.js"></script>
+    <script src="~/js/markdown.js" asp-append-version="true"></script>
+    <script src="~/js/chat.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FolderChat.Application/FolderChat.Application.csproj" />
+    <Project Path="src/FolderChat.Core/FolderChat.Core.csproj" />
+    <Project Path="src/FolderChat.Infrastructure/FolderChat.Infrastructure.csproj" />
+    <Project Path="src/FolderChat.Web/FolderChat.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FolderChat.Tests/FolderChat.Tests.csproj" />
+  </Folder>
+</Solution>

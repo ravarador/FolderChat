@@ -1,0 +1,14 @@
+﻿@model ErrorViewModel
+@{
+    ViewData["Title"] = "Error";
+}
+
+<div class="container py-5" style="max-width: 720px">
+    <h1 class="h4 text-danger">Something went wrong</h1>
+    <p>The error has been written to the log in FolderChat's data folder.</p>
+    @if (Model.ShowRequestId)
+    {
+        <p class="small text-body-secondary">Request ID: <code>@Model.RequestId</code></p>
+    }
+    <a class="btn btn-primary" asp-controller="Home" asp-action="Index">Back to chat</a>
+</div>

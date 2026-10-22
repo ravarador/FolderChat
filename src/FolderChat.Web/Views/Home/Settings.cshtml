@@ -1,0 +1,71 @@
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<div class="settings-page container py-4">
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <h1 class="h4 mb-0">Providers</h1>
+        <button id="add-provider" class="btn btn-primary btn-sm ms-auto" type="button">Add provider</button>
+    </div>
+    <p class="small text-body-secondary">
+        API keys are encrypted on this computer and never sent back to the browser.
+        Cloud providers receive the messages you send to their models; local providers keep everything on this machine.
+    </p>
+
+    <div id="provider-list" class="vstack gap-3"></div>
+    <p id="no-providers" class="text-body-secondary d-none">No providers yet. Add one to start chatting.</p>
+</div>
+
+<div class="modal fade" id="provider-modal" tabindex="-1" aria-labelledby="provider-modal-title" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="provider-form" class="modal-content" autocomplete="off">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="provider-modal-title">Add provider</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body vstack gap-3">
+                <div id="preset-group">
+                    <label class="form-label" for="provider-preset">Start from</label>
+                    <select id="provider-preset" class="form-select"></select>
+                </div>
+                <div>
+                    <label class="form-label" for="provider-name">Name</label>
+                    <input id="provider-name" class="form-control" maxlength="100" required />
+                </div>
+                <div>
+                    <label class="form-label" for="provider-kind">Type</label>
+                    <select id="provider-kind" class="form-select">
+                        <option value="Anthropic">Anthropic</option>
+                        <option value="OpenAI">OpenAI</option>
+                        <option value="OpenAICompatible">OpenAI-compatible</option>
+                        <option value="Ollama">Ollama</option>
+                    </select>
+                    <div id="kind-hint" class="form-text text-warning-emphasis d-none"></div>
+                </div>
+                <div>
+                    <label class="form-label" for="provider-base-url">Base URL</label>
+                    <input id="provider-base-url" class="form-control" type="url" placeholder="Leave blank for the provider's default" />
+                </div>
+                <div>
+                    <label class="form-label" for="provider-api-key">API key</label>
+                    <input id="provider-api-key" class="form-control" type="password" autocomplete="new-password" />
+                    <div id="api-key-help" class="form-text"></div>
+                </div>
+                <div class="form-check form-switch">
+                    <input id="provider-enabled" class="form-check-input" type="checkbox" checked />
+                    <label class="form-check-label" for="provider-enabled">Enabled</label>
+                </div>
+                <div id="preset-notes" class="small text-body-secondary"></div>
+                <div id="provider-error" class="alert alert-danger d-none mb-0"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button id="provider-save" type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/settings.js" asp-append-version="true"></script>
+}
