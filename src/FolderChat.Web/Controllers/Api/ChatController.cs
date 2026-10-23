@@ -19,7 +19,9 @@ public sealed class ChatController(ChatService chat, IOptions<JsonOptions> jsonO
         ServerSentEvents.Start(Response);
         var json = jsonOptions.Value.JsonSerializerOptions;
 
-        var events = chat.StreamAsync(new ChatRequest(request.ConversationId, request.ProviderId, request.ModelId, request.Message), ct);
+        var events = chat.StreamAsync(
+            new ChatRequest(request.ConversationId, request.ProviderId, request.ModelId, request.Message ?? "", request.AttachmentIds),
+            ct);
         await foreach (var chatEvent in events)
         {
             var name = chatEvent switch
@@ -35,8 +37,11 @@ public sealed class ChatController(ChatService chat, IOptions<JsonOptions> jsonO
     }
 }
 
+/// <param name="Message">Can be empty when files are attached.</param>
+/// <param name="AttachmentIds">Files uploaded through <c>/api/attachments</c> to send with the message.</param>
 public sealed record ChatStreamRequest(
     Guid? ConversationId,
     Guid ProviderId,
     [Required] string ModelId,
-    [Required, MaxLength(ChatService.MaxMessageLength)] string Message);
+    [MaxLength(ChatService.MaxMessageLength)] string? Message,
+    [MaxLength(ChatService.MaxAttachments)] IReadOnlyList<Guid>? AttachmentIds = null);

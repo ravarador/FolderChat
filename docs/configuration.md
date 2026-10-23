@@ -27,7 +27,7 @@ export ASPNETCORE_URLS="http://127.0.0.1:5090"
 
 ## Opening FolderChat to other devices (not recommended yet)
 
-v0.1 has no sign-in. Anyone who can reach the port can use your saved API keys. If you still want to reach it from another device on a network you trust:
+FolderChat has no sign-in yet. Anyone who can reach the port can use your saved API keys and read your conversations. If you still want to reach it from another device on a network you trust:
 
 1. Listen on all interfaces: `--urls http://0.0.0.0:5080`.
 2. Add the host name or IP you'll use to `AllowedHosts`, for example `localhost;127.0.0.1;192.168.1.20`.

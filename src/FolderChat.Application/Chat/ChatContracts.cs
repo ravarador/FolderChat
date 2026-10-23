@@ -1,7 +1,13 @@
 namespace FolderChat.Application.Chat;
 
 /// <summary>Sends <paramref name="Message"/> to a model. Leave <paramref name="ConversationId"/> empty to start a new conversation.</summary>
-public sealed record ChatRequest(Guid? ConversationId, Guid ProviderId, string ModelId, string Message);
+/// <param name="AttachmentIds">Uploaded files to send with the message, in the order given. The message text can be empty when there are some.</param>
+public sealed record ChatRequest(
+    Guid? ConversationId,
+    Guid ProviderId,
+    string ModelId,
+    string Message,
+    IReadOnlyList<Guid>? AttachmentIds = null);
 
 /// <summary>One step of a streamed reply. The stream ends with either <see cref="ChatCompleted"/> or <see cref="ChatFailed"/>.</summary>
 public abstract record ChatStreamEvent;

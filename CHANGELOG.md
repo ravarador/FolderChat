@@ -4,6 +4,18 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-23
+
+### Added
+
+- Attach PDF, Word (.docx) and text files to a message: click **Attach**, drop files on the chat, or paste a copied file. FolderChat reads the text on your computer and sends it with your message, so attachments work with every provider, local models included.
+- Text files cover anything readable as text, such as Markdown, CSV, JSON, logs and source code, in UTF-8, UTF-16 or Windows-1252.
+- Files are read as soon as they're attached. A file that can't be read (a scan, an image, a password-protected file, an old .doc) is flagged before sending, with what to do about it.
+- Click an attached file to see exactly the text the model receives.
+- Up to 10 files per message and 20 MB per file. A file with more than 500,000 characters of text is cut off, and both you and the model are told.
+- Attached files stay part of the conversation: later messages send them to the model again. Deleting the conversation deletes them, and files attached but never sent are deleted after a day.
+- A message can be just files, with no text. A new chat is then named after the first file.
+
 ### Fixed
 
 - A rejected API key now shows the provider's own reason, which often includes the last characters of the key it received.

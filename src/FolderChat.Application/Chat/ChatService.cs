@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using FolderChat.Application.Abstractions;
@@ -12,12 +13,17 @@ namespace FolderChat.Application.Chat;
 public sealed class ChatService(
     IProviderStore providers,
     IConversationStore conversations,
+    IAttachmentStore attachments,
     IChatClientFactory chatClients,
     IProviderErrorDescriber errors,
     TimeProvider clock,
     ILogger<ChatService> logger)
 {
     public const int MaxMessageLength = 100_000;
+
+    /// <summary>The most files one message can carry.</summary>
+    public const int MaxAttachments = 10;
+
     private const int TitleLength = 60;
 
     /// <summary>
@@ -29,7 +35,8 @@ public sealed class ChatService(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var text = request.Message?.Trim() ?? "";
-        if (text.Length == 0)
+        var attachmentIds = request.AttachmentIds?.Distinct().ToList() ?? [];
+        if (text.Length == 0 && attachmentIds.Count == 0)
         {
             yield return new ChatFailed("Type a message first.", null);
             yield break;
@@ -38,6 +45,12 @@ public sealed class ChatService(
         if (text.Length > MaxMessageLength)
         {
             yield return new ChatFailed($"Messages are limited to {MaxMessageLength:N0} characters.", null);
+            yield break;
+        }
+
+        if (attachmentIds.Count > MaxAttachments)
+        {
+            yield return new ChatFailed($"Attach up to {MaxAttachments} files per message.", null);
             yield break;
         }
 
@@ -57,12 +70,20 @@ public sealed class ChatService(
         var model = provider.Models.FirstOrDefault(m => m.ModelId == request.ModelId)
             ?? new ProviderModel { ProviderId = provider.Id, ModelId = request.ModelId };
 
+        var files = await FindUnsentAsync(attachmentIds, ct);
+        if (files is null)
+        {
+            yield return new ChatFailed("An attached file isn't available anymore. Remove it and attach it again.", null);
+            yield break;
+        }
+
         var now = clock.GetUtcNow().UtcDateTime;
         var isNew = request.ConversationId is null;
         Conversation conversation;
         if (isNew)
         {
-            conversation = new Conversation { Title = MakeTitle(text), CreatedAt = now, UpdatedAt = now };
+            var title = MakeTitle(text.Length > 0 ? text : files[0].FileName);
+            conversation = new Conversation { Title = title, CreatedAt = now, UpdatedAt = now };
             conversations.Add(conversation);
         }
         else
@@ -78,7 +99,6 @@ public sealed class ChatService(
         }
 
         var history = BuildHistory(conversation.Messages);
-        history.Add(new ChatMessage(ChatRole.User, text));
         var nextSequence = conversation.Messages.Count == 0 ? 1 : conversation.Messages.Max(m => m.Sequence) + 1;
 
         var userMessage = new ConversationMessage
@@ -89,6 +109,16 @@ public sealed class ChatService(
             Content = text,
             CreatedAt = now,
         };
+        for (var i = 0; i < files.Count; i++)
+        {
+            files[i].MessageId = userMessage.Id;
+            files[i].Position = i + 1;
+            userMessage.Attachments.Add(files[i]);
+        }
+
+        history.Add(new ChatMessage(ChatRole.User, ComposeUserText(userMessage)));
+
+        // The stores share one unit of work, so this also saves the files' link to the message.
         conversations.AddMessage(userMessage);
         conversation.ProviderId = provider.Id;
         conversation.ModelId = model.ModelId;
@@ -194,13 +224,66 @@ public sealed class ChatService(
         return collapsed.Length <= TitleLength ? collapsed : collapsed[..(TitleLength - 1)].TrimEnd() + "…";
     }
 
-    /// <summary>Earlier turns, oldest first. Failed replies and empty messages are left out.</summary>
+    /// <summary>Earlier turns, oldest first, with their attached files. Failed replies and empty messages are left out.</summary>
     internal static List<ChatMessage> BuildHistory(IEnumerable<ConversationMessage> messages) =>
         messages
-            .Where(m => m.Status != MessageStatus.Failed && !string.IsNullOrWhiteSpace(m.Content))
+            .Where(m => m.Status != MessageStatus.Failed && (!string.IsNullOrWhiteSpace(m.Content) || m.Attachments.Count > 0))
             .OrderBy(m => m.Sequence)
-            .Select(m => new ChatMessage(m.Role == MessageRole.User ? ChatRole.User : ChatRole.Assistant, m.Content))
+            .Select(m => m.Role == MessageRole.User
+                ? new ChatMessage(ChatRole.User, ComposeUserText(m))
+                : new ChatMessage(ChatRole.Assistant, m.Content))
             .ToList();
+
+    /// <summary>
+    /// What the model sees for a user message: each attached file's text in a document tag, then what the user
+    /// typed. Plain text works with every provider, local models included, so files need no special support.
+    /// </summary>
+    internal static string ComposeUserText(ConversationMessage message)
+    {
+        if (message.Attachments.Count == 0)
+        {
+            return message.Content;
+        }
+
+        var text = new StringBuilder();
+        foreach (var file in message.Attachments.OrderBy(a => a.Position))
+        {
+            text.Append("<document name=\"").Append(file.FileName.Replace('"', '\'')).Append("\">\n")
+                .Append(file.Text.TrimEnd()).Append('\n');
+            if (file.IsTruncated)
+            {
+                // Invariant, so the number reads the same whatever language the computer uses.
+                text.Append(CultureInfo.InvariantCulture, $"[The file is longer than this. Only its first {file.Text.Length:N0} characters are included.]\n");
+            }
+
+            text.Append("</document>\n\n");
+        }
+
+        return text.Append(message.Content).ToString().TrimEnd();
+    }
+
+    /// <summary>The attachments in the order asked for, or null if any is missing or was already sent.</summary>
+    private async Task<List<Attachment>?> FindUnsentAsync(List<Guid> ids, CancellationToken ct)
+    {
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var found = (await attachments.FindManyAsync(ids, ct)).ToDictionary(a => a.Id);
+        var ordered = new List<Attachment>(ids.Count);
+        foreach (var id in ids)
+        {
+            if (!found.TryGetValue(id, out var attachment) || attachment.MessageId is not null)
+            {
+                return null;
+            }
+
+            ordered.Add(attachment);
+        }
+
+        return ordered;
+    }
 
     private (IChatClient? Client, string? Error) TryCreateClient(Provider provider, ProviderModel model)
     {

@@ -165,6 +165,96 @@ public sealed class ChatServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Attached_files_go_to_the_model_before_the_message_and_are_linked_to_it()
+    {
+        var notes = await AttachAsync("notes.txt", "Meeting at 10.");
+        var plan = await AttachAsync("plan \"v2\".md", "# Plan\nShip it.\n");
+        var recorder = new FakeChatClient();
+        clients.Build = (_, _) => recorder;
+
+        var events = await CollectAsync(new ChatRequest(null, provider.Id, "model-a", "Summarize these", [plan.Id, notes.Id]));
+
+        Assert.IsType<ChatCompleted>(events[^1]);
+        Assert.Equal(
+            "<document name=\"plan 'v2'.md\">\n# Plan\nShip it.\n</document>\n\n<document name=\"notes.txt\">\nMeeting at 10.\n</document>\n\nSummarize these",
+            Assert.Single(recorder.ReceivedMessages).Text);
+
+        await using var check = database.NewContext();
+        var message = await check.Messages.Include(m => m.Attachments).SingleAsync(m => m.Role == MessageRole.User);
+        Assert.Equal("Summarize these", message.Content);
+        Assert.Equal([(1, "plan \"v2\".md"), (2, "notes.txt")], message.Attachments.OrderBy(a => a.Position).Select(a => (a.Position, a.FileName)));
+    }
+
+    [Fact]
+    public async Task Files_from_earlier_turns_are_sent_again()
+    {
+        var notes = await AttachAsync("notes.txt", "Meeting at 10.");
+        var first = await CollectAsync(new ChatRequest(null, provider.Id, "model-a", "When is the meeting?", [notes.Id]));
+        var conversationId = Assert.IsType<ChatStarted>(first[0]).ConversationId;
+
+        var recorder = new FakeChatClient();
+        clients.Build = (_, _) => recorder;
+        await CollectAsync(Request(conversationId, "And who is coming?"));
+
+        Assert.Equal(
+            ["<document name=\"notes.txt\">\nMeeting at 10.\n</document>\n\nWhen is the meeting?", "Hello world", "And who is coming?"],
+            recorder.ReceivedMessages.Select(m => m.Text));
+    }
+
+    [Fact]
+    public async Task A_message_can_be_just_files()
+    {
+        var report = await AttachAsync("Q3 report.txt", "Revenue grew.");
+        var recorder = new FakeChatClient();
+        clients.Build = (_, _) => recorder;
+
+        var events = await CollectAsync(new ChatRequest(null, provider.Id, "model-a", "  ", [report.Id]));
+
+        Assert.Equal("Q3 report.txt", Assert.IsType<ChatStarted>(events[0]).Title);
+        Assert.Equal("<document name=\"Q3 report.txt\">\nRevenue grew.\n</document>", Assert.Single(recorder.ReceivedMessages).Text);
+    }
+
+    [Fact]
+    public async Task Files_that_are_gone_or_already_sent_fail_without_saving()
+    {
+        var notes = await AttachAsync("notes.txt", "Meeting at 10.");
+        await CollectAsync(new ChatRequest(null, provider.Id, "model-a", "First", [notes.Id]));
+
+        var reused = await CollectAsync(new ChatRequest(null, provider.Id, "model-a", "Again", [notes.Id]));
+        var missing = await CollectAsync(new ChatRequest(null, provider.Id, "model-a", "Again", [Guid.NewGuid()]));
+
+        Assert.Contains("isn't available anymore", Assert.IsType<ChatFailed>(Assert.Single(reused)).Error);
+        Assert.Contains("isn't available anymore", Assert.IsType<ChatFailed>(Assert.Single(missing)).Error);
+        await using var check = database.NewContext();
+        Assert.Single(await check.Conversations.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Too_many_files_are_refused()
+    {
+        var ids = Enumerable.Range(0, ChatService.MaxAttachments + 1).Select(_ => Guid.NewGuid()).ToList();
+
+        var events = await CollectAsync(new ChatRequest(null, provider.Id, "model-a", "Hi", ids));
+
+        Assert.Equal("Attach up to 10 files per message.", Assert.IsType<ChatFailed>(Assert.Single(events)).Error);
+    }
+
+    [Fact]
+    public void Cut_off_files_tell_the_model_so()
+    {
+        var message = new ConversationMessage
+        {
+            Role = MessageRole.User,
+            Content = "What does it say?",
+            Attachments = [new Attachment { FileName = "book.txt", MediaType = "text/plain", Text = "Once upon", IsTruncated = true }],
+        };
+
+        Assert.Equal(
+            "<document name=\"book.txt\">\nOnce upon\n[The file is longer than this. Only its first 9 characters are included.]\n</document>\n\nWhat does it say?",
+            ChatService.ComposeUserText(message));
+    }
+
+    [Fact]
     public void History_leaves_out_failed_replies_and_follows_sequence()
     {
         var history = ChatService.BuildHistory(
@@ -196,9 +286,26 @@ public sealed class ChatServiceTests : IAsyncLifetime
     private ChatRequest Request(Guid? conversationId, string message) =>
         new(conversationId, provider.Id, "model-a", message);
 
+    /// <summary>Saves an attachment that hasn't been sent yet, as uploading a file does.</summary>
+    private async Task<Attachment> AttachAsync(string fileName, string text)
+    {
+        var attachment = new Attachment
+        {
+            FileName = fileName,
+            MediaType = "text/plain",
+            Text = text,
+            Size = text.Length,
+            CreatedAt = clock.GetUtcNow().UtcDateTime,
+        };
+        db.Attachments.Add(attachment);
+        await db.SaveChangesAsync();
+        return attachment;
+    }
+
     private ChatService CreateService() => new(
         new EfProviderStore(db),
         new EfConversationStore(db),
+        new EfAttachmentStore(db),
         clients,
         new MessageErrorDescriber(),
         clock,

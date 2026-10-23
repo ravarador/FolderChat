@@ -40,7 +40,9 @@
     async function request(method, url, body) {
         const init = { method, headers: { Accept: "application/json" } };
         if (method !== "GET") init.headers["X-CSRF-TOKEN"] = csrfToken;
-        if (body !== undefined) {
+        if (body instanceof FormData) {
+            init.body = body; // the browser sets the multipart Content-Type, with its boundary
+        } else if (body !== undefined) {
             init.headers["Content-Type"] = "application/json";
             init.body = JSON.stringify(body);
         }
@@ -83,6 +85,7 @@
             put: (url, body) => request("PUT", url, body),
             patch: (url, body) => request("PATCH", url, body),
             delete: url => request("DELETE", url),
+            upload: (url, formData) => request("POST", url, formData),
         },
     };
 })();

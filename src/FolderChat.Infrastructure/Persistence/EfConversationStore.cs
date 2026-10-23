@@ -14,7 +14,11 @@ internal sealed class EfConversationStore(FolderChatDbContext db) : IConversatio
         IQueryable<Conversation> query = db.Conversations;
         if (includeMessages)
         {
-            query = query.Include(c => c.Messages.OrderBy(m => m.Sequence));
+            // Split, so a long message isn't repeated in the results once for each of its files.
+            query = query
+                .Include(c => c.Messages.OrderBy(m => m.Sequence))
+                .ThenInclude(m => m.Attachments.OrderBy(a => a.Position))
+                .AsSplitQuery();
         }
 
         return query.FirstOrDefaultAsync(c => c.Id == id, ct);

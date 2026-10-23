@@ -32,6 +32,9 @@ public sealed class ConversationMessage
     public long? OutputTokens { get; set; }
 
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>Files sent with a user message, in <see cref="Attachment.Position"/> order.</summary>
+    public List<Attachment> Attachments { get; set; } = [];
 }
 
 public enum MessageRole
