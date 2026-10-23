@@ -1,4 +1,5 @@
 using FolderChat.Application.Abstractions;
+using FolderChat.Application.Attachments;
 using FolderChat.Application.Common;
 using FolderChat.Core.Conversations;
 
@@ -56,7 +57,8 @@ public sealed class ConversationService(IConversationStore store, TimeProvider c
     }
 
     internal static MessageDto ToDto(ConversationMessage m) => new(
-        m.Id, m.Role, m.Content, m.Status, m.Error, m.ProviderName, m.ModelId, m.InputTokens, m.OutputTokens, m.CreatedAt);
+        m.Id, m.Role, m.Content, m.Status, m.Error, m.ProviderName, m.ModelId, m.InputTokens, m.OutputTokens, m.CreatedAt,
+        m.Attachments.OrderBy(a => a.Position).Select(AttachmentService.ToSummary).ToList());
 
     private async Task<Conversation> FindAsync(Guid id, bool includeMessages, CancellationToken ct) =>
         await store.FindAsync(id, includeMessages, ct) ?? throw new NotFoundException("That conversation doesn't exist.");

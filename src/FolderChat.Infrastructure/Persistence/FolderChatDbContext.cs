@@ -15,6 +15,8 @@ public sealed class FolderChatDbContext(DbContextOptions<FolderChatDbContext> op
 
     public DbSet<ConversationMessage> Messages => Set<ConversationMessage>();
 
+    public DbSet<Attachment> Attachments => Set<Attachment>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Every key is a Guid the app creates itself. Telling EF they're never database-generated lets it
@@ -23,6 +25,7 @@ public sealed class FolderChatDbContext(DbContextOptions<FolderChatDbContext> op
         modelBuilder.Entity<ProviderModel>().Property(m => m.Id).ValueGeneratedNever();
         modelBuilder.Entity<Conversation>().Property(c => c.Id).ValueGeneratedNever();
         modelBuilder.Entity<ConversationMessage>().Property(m => m.Id).ValueGeneratedNever();
+        modelBuilder.Entity<Attachment>().Property(a => a.Id).ValueGeneratedNever();
 
         modelBuilder.Entity<Provider>(provider =>
         {
@@ -61,6 +64,18 @@ public sealed class FolderChatDbContext(DbContextOptions<FolderChatDbContext> op
             message.Property(m => m.ModelId).HasMaxLength(200);
             message.Property(m => m.Error).HasMaxLength(2000);
             message.HasIndex(m => new { m.ConversationId, m.Sequence }).IsUnique();
+
+            // Optional, because a file has no message until it is sent. Deleting a conversation deletes its files.
+            message.HasMany(m => m.Attachments)
+                .WithOne()
+                .HasForeignKey(a => a.MessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Attachment>(attachment =>
+        {
+            attachment.Property(a => a.FileName).HasMaxLength(255);
+            attachment.Property(a => a.MediaType).HasMaxLength(100);
         });
     }
 

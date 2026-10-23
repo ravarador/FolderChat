@@ -1,4 +1,4 @@
-// The chat page: model picker, conversation list and streamed replies.
+// The chat page: model picker, conversation list, attached files and streamed replies.
 (() => {
     const { api, toast, csrfToken, readError } = window.folderChat;
     const markdown = window.folderChatMarkdown;
@@ -8,16 +8,31 @@
         list: document.getElementById("conversation-list"),
         search: document.getElementById("conversation-search"),
         newChat: document.getElementById("new-chat"),
+        main: document.getElementById("chat-main"),
         picker: document.getElementById("model-picker"),
         privacy: document.getElementById("privacy-badge"),
         title: document.getElementById("chat-title"),
         messages: document.getElementById("messages"),
         empty: document.getElementById("empty-state"),
         emptyText: document.getElementById("empty-state-text"),
+        dropZone: document.getElementById("drop-zone"),
         composer: document.getElementById("composer"),
+        tray: document.getElementById("attachment-tray"),
+        attach: document.getElementById("attach"),
+        fileInput: document.getElementById("file-input"),
         prompt: document.getElementById("prompt"),
         send: document.getElementById("send"),
         stop: document.getElementById("stop"),
+        attachmentModal: document.getElementById("attachment-modal"),
+        attachmentTitle: document.getElementById("attachment-modal-title"),
+        attachmentInfo: document.getElementById("attachment-modal-info"),
+        attachmentText: document.getElementById("attachment-modal-text"),
+    };
+
+    // The server's limits, rendered into the page.
+    const limits = {
+        fileSize: Number(els.composer.dataset.maxFileSize),
+        files: Number(els.composer.dataset.maxFiles),
     };
 
     const state = {
@@ -25,7 +40,12 @@
         currentId: null, // null means a new, unsaved chat
         providers: [], // providers with enabled models, from /api/providers/picker
         streaming: null, // the AbortController of the reply being streamed
+        attachments: [], // files in the composer: { name, status: "uploading" | "ready" | "failed", attachment, error }
     };
+
+    const attachmentModal = bootstrap.Modal.getOrCreateInstance(els.attachmentModal);
+    const compactNumber = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
+    let previewRequest = 0;
 
     // ---------- Model picker ----------
 
@@ -222,10 +242,18 @@
         wrapper.className = `message message-${message.role === "User" ? "user" : "assistant"}`;
 
         if (message.role === "User") {
-            const bubble = document.createElement("div");
-            bubble.className = "bubble";
-            bubble.textContent = message.content;
-            wrapper.append(bubble);
+            if (message.attachments?.length) {
+                const files = document.createElement("div");
+                files.className = "message-attachments";
+                files.append(...message.attachments.map(attachment => attachmentChip({ name: attachment.fileName, status: "ready", attachment })));
+                wrapper.append(files);
+            }
+            if (message.content) {
+                const bubble = document.createElement("div");
+                bubble.className = "bubble";
+                bubble.textContent = message.content;
+                wrapper.append(bubble);
+            }
         } else {
             const meta = document.createElement("div");
             meta.className = "message-meta";
@@ -275,7 +303,7 @@
             link.textContent = "Add a provider in Settings";
             els.emptyText.replaceChildren("No models are set up yet. ", link, ".");
         } else {
-            els.emptyText.textContent = "Pick a model above and send a message.";
+            els.emptyText.textContent = "Pick a model above and send a message. You can attach PDF, Word and text files too.";
         }
     }
 
@@ -288,6 +316,131 @@
         if (force || isNearBottom()) els.messages.scrollTop = els.messages.scrollHeight;
     }
 
+    // ---------- Attached files ----------
+
+    /** Uploads files as soon as they're picked, so a file that can't be read is reported before sending. */
+    function addFiles(files) {
+        for (const file of files) {
+            if (state.attachments.length >= limits.files) {
+                toast(`You can attach up to ${limits.files} files to a message.`, "warning");
+                break;
+            }
+            if (file.size > limits.fileSize) {
+                toast(`${file.name} is larger than ${limits.fileSize / (1024 * 1024)} MB.`, "warning");
+                continue;
+            }
+
+            const item = { name: file.name, status: "uploading", attachment: null, error: null };
+            state.attachments.push(item);
+            upload(item, file);
+        }
+        renderTray();
+    }
+
+    async function upload(item, file) {
+        const form = new FormData();
+        form.append("file", file, file.name);
+        try {
+            item.attachment = await api.upload("/api/attachments", form);
+            item.status = "ready";
+        } catch (error) {
+            item.status = "failed";
+            item.error = error.message;
+        }
+
+        if (state.attachments.includes(item)) renderTray();
+        else discard(item); // removed while it was uploading
+    }
+
+    function removeAttachment(item) {
+        state.attachments = state.attachments.filter(i => i !== item);
+        if (item.status !== "uploading") discard(item);
+        renderTray();
+        els.prompt.focus();
+    }
+
+    /** Deletes the server's copy of a file that won't be sent. If this fails, the server deletes it after a day anyway. */
+    function discard(item) {
+        if (item.attachment) api.delete(`/api/attachments/${item.attachment.id}`).catch(() => { });
+    }
+
+    function renderTray() {
+        els.tray.replaceChildren(...state.attachments.map(item => attachmentChip(item, () => removeAttachment(item))));
+        els.tray.classList.toggle("d-none", state.attachments.length === 0);
+
+        const uploading = state.attachments.some(item => item.status === "uploading");
+        els.send.disabled = uploading;
+        els.send.title = uploading ? "Waiting for the attached files to be read" : "";
+    }
+
+    /** A file's name and details. Clicking it shows the text read from it; onRemove adds a remove button. */
+    function attachmentChip(item, onRemove) {
+        const chip = document.createElement("div");
+        chip.className = "attachment-chip";
+        chip.classList.toggle("is-failed", item.status === "failed");
+        chip.classList.toggle("is-truncated", Boolean(item.attachment?.isTruncated));
+
+        const open = document.createElement("button");
+        open.type = "button";
+        open.className = "attachment-open";
+        open.disabled = item.status !== "ready";
+        open.title = item.status === "ready" ? `Show the text read from ${item.name}` : item.error ?? item.name;
+        open.addEventListener("click", () => showAttachment(item.attachment));
+
+        const name = document.createElement("span");
+        name.className = "attachment-name";
+        name.textContent = item.name;
+
+        const detail = document.createElement("span");
+        detail.className = "attachment-detail";
+        if (item.status === "uploading") {
+            const spinner = document.createElement("span");
+            spinner.className = "spinner-border spinner-border-sm me-1";
+            spinner.setAttribute("aria-hidden", "true");
+            detail.append(spinner, "Reading…");
+        } else {
+            detail.textContent = item.status === "failed" ? item.error : describeAttachment(item.attachment);
+        }
+
+        open.append(name, detail);
+        chip.append(open);
+        if (onRemove) {
+            const remove = iconButton(`Remove ${item.name}`, "✕", onRemove);
+            remove.title = "Remove";
+            chip.append(remove);
+        }
+        return chip;
+    }
+
+    function describeAttachment(attachment) {
+        const parts = [];
+        if (attachment.pageCount) parts.push(`${attachment.pageCount.toLocaleString()} ${attachment.pageCount === 1 ? "page" : "pages"}`);
+        const characters = `${compactNumber.format(attachment.characterCount)} characters`;
+        parts.push(attachment.isTruncated ? `only the first ${characters}` : characters);
+        return parts.join(" · ");
+    }
+
+    /** Shows exactly what the model is sent for a file. */
+    async function showAttachment(summary) {
+        const request = ++previewRequest;
+        els.attachmentTitle.textContent = summary.fileName;
+        els.attachmentInfo.textContent = "Loading…";
+        els.attachmentText.textContent = "";
+        attachmentModal.show();
+
+        try {
+            const attachment = await api.get(`/api/attachments/${summary.id}`);
+            if (request !== previewRequest) return; // another file was opened meanwhile
+
+            els.attachmentInfo.textContent = attachment.isTruncated
+                ? `This is the text FolderChat read from the file. The file holds more than FolderChat sends, so the model gets only these first ${attachment.characterCount.toLocaleString()} characters.`
+                : `This is the text FolderChat read from the file (${describeAttachment(attachment)}). The model gets exactly this with the message.`;
+            els.attachmentText.textContent = attachment.text;
+        } catch (error) {
+            if (request === previewRequest) els.attachmentInfo.textContent = error.message;
+        }
+    }
+
     // ---------- Sending and streaming ----------
 
     function setStreaming(on) {
@@ -298,8 +451,15 @@
     }
 
     async function send() {
+        if (state.streaming) return;
+        if (state.attachments.some(item => item.status === "uploading")) {
+            toast("Wait a moment: the attached files are still being read.", "warning");
+            return;
+        }
+
         const text = els.prompt.value.trim();
-        if (!text || state.streaming) return;
+        const ready = state.attachments.filter(item => item.status === "ready");
+        if (!text && ready.length === 0) return;
 
         const selection = currentSelection();
         if (!selection) {
@@ -307,11 +467,15 @@
             return;
         }
 
+        // Files that failed to read are dropped. Their error was shown on the chip.
+        const files = ready.map(item => item.attachment);
         const provider = state.providers.find(p => p.id === selection.providerId);
         els.prompt.value = "";
+        state.attachments = [];
+        renderTray();
         autosize();
 
-        const userBubble = appendMessage({ role: "User", content: text });
+        const userBubble = appendMessage({ role: "User", content: text, attachments: files });
         const reply = appendMessage({ role: "Assistant", content: "", providerName: provider?.name, modelId: selection.modelId });
         const content = reply.querySelector(".content");
         reply.classList.add("streaming");
@@ -336,7 +500,23 @@
             });
         };
 
-        const body = { conversationId: state.currentId, providerId: selection.providerId, modelId: selection.modelId, message: text };
+        // Nothing was saved, so put the message and its files back to try again.
+        const restoreComposer = () => {
+            userBubble.remove();
+            reply.remove();
+            els.prompt.value = text;
+            state.attachments = [...ready, ...state.attachments];
+            renderTray();
+            autosize();
+        };
+
+        const body = {
+            conversationId: state.currentId,
+            providerId: selection.providerId,
+            modelId: selection.modelId,
+            message: text,
+            attachmentIds: files.map(file => file.id),
+        };
         try {
             await streamChat(body, controller.signal, {
                 started: event => {
@@ -367,11 +547,7 @@
                 error: event => {
                     finished = true;
                     if (!started) {
-                        // Nothing was saved. Put the message back so it isn't lost.
-                        userBubble.remove();
-                        reply.remove();
-                        els.prompt.value = text;
-                        autosize();
+                        restoreComposer();
                         toast(event.error);
                         return;
                     }
@@ -386,6 +562,9 @@
                 markdown.render(content, replyText);
                 markdown.enhance(content);
                 addNote(reply, "Stopped.");
+            } else if (!started) {
+                restoreComposer();
+                toast(error.message || "The request failed.");
             } else {
                 addError(reply, error.message || "The request failed.");
             }
@@ -453,6 +632,50 @@
     els.stop.addEventListener("click", () => state.streaming?.abort());
     els.newChat.addEventListener("click", newChat);
     els.search.addEventListener("input", renderConversationList);
+
+    els.attach.addEventListener("click", () => els.fileInput.click());
+    els.fileInput.addEventListener("change", () => {
+        addFiles(els.fileInput.files);
+        els.fileInput.value = ""; // so picking the same file again still fires "change"
+    });
+
+    // Pasting a copied file attaches it. Rich text from Word also carries a picture of itself, so only
+    // clipboards without plain text count.
+    els.prompt.addEventListener("paste", event => {
+        const clipboard = event.clipboardData;
+        if (!clipboard || clipboard.files.length === 0 || clipboard.types.includes("text/plain")) return;
+        event.preventDefault();
+        addFiles(clipboard.files);
+    });
+
+    // Dropping files anywhere on the chat attaches them.
+    const hasFiles = event => event.dataTransfer?.types.includes("Files") ?? false;
+    let dragDepth = 0; // dragenter and dragleave fire for every child element crossed
+    els.main.addEventListener("dragenter", event => {
+        if (!hasFiles(event)) return;
+        dragDepth++;
+        els.dropZone.classList.remove("d-none");
+    });
+    els.main.addEventListener("dragleave", event => {
+        if (!hasFiles(event)) return;
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) els.dropZone.classList.add("d-none");
+    });
+    els.main.addEventListener("drop", event => {
+        if (!hasFiles(event)) return;
+        dragDepth = 0;
+        els.dropZone.classList.add("d-none");
+        addFiles(event.dataTransfer.files);
+    });
+
+    // Without this, a file dropped anywhere on the page opens in the tab and the chat is lost.
+    for (const type of ["dragover", "drop"]) {
+        window.addEventListener(type, event => {
+            if (!hasFiles(event)) return;
+            event.preventDefault();
+            if (type === "dragover") event.dataTransfer.dropEffect = els.main.contains(event.target) ? "copy" : "none";
+        });
+    }
 
     (async () => {
         try {

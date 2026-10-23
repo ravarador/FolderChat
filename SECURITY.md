@@ -19,9 +19,11 @@ FolderChat runs on your own computer and stores API keys for paid services, so i
 - **Cross-site requests:** every change request must carry an anti-forgery token, which other websites can't read.
 - **API keys:** keys are encrypted with ASP.NET Core Data Protection. On Windows, the key ring is also protected with DPAPI for your user account. The API never returns a key.
 - **Model output:** replies are rendered as Markdown and sanitized with DOMPurify before they reach the page.
+- **Attached files:** files are read on your computer. FolderChat keeps only their text, in the local database, and sends it to the model you picked. It reads at most 20 MB per file and caps how far a Word file can expand. Files that are attached but never sent are deleted after a day.
 
 What it does **not** protect against:
 
 - Other programs running as your user on the same computer.
-- Anything you send to a cloud provider. That provider receives your messages under its own terms.
-- Exposing the app to a network with `--urls http://0.0.0.0:...`. v0.1 has no sign-in.
+- Anything you send to a cloud provider. That provider receives your messages, and the text of any files attached to them, under its own terms.
+- Files built to attack the PDF or Word readers. They run inside FolderChat, so a malicious file could slow it down or stop it.
+- Exposing the app to a network with `--urls http://0.0.0.0:...`. FolderChat has no sign-in yet.

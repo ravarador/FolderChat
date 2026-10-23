@@ -2,8 +2,8 @@
 
 Chat with Claude, ChatGPT, DeepSeek, Kimi, GLM, Gemini and local models from one app that runs on your own computer.
 
-> **Status: v0.1 (early preview).** Chat, the model picker and conversation history work.
-> Answering from your own files and folders is next on the [roadmap](#roadmap).
+> **Status: v0.2 (early preview).** Chat, the model picker, conversation history and file attachments work.
+> Answering from whole folders of your files is next on the [roadmap](#roadmap).
 
 ## Why FolderChat
 
@@ -12,11 +12,12 @@ Chat with Claude, ChatGPT, DeepSeek, Kimi, GLM, Gemini and local models from one
 - **Local models too.** Point it at [Ollama](https://ollama.com) or LM Studio and nothing leaves your computer. The chat shows a badge saying where each message goes.
 - **Open source.** MIT licensed. Contributions welcome.
 
-## Features in v0.1
+## Features in v0.2
 
 - Model picker grouped by provider, loaded from each provider's own model list.
 - Streaming replies with Markdown, syntax-highlighted code and copy buttons. A Stop button keeps whatever arrived so far.
 - Conversation history with search, rename and delete.
+- Attach PDF, Word (.docx) and text files to a message: click **Attach**, drop them on the chat, or paste them. FolderChat reads the text on your computer and sends it with your message, so attachments work with every model, local ones included. Click a file to see exactly what the model receives.
 - Providers:
   - Anthropic (Claude) through the official Anthropic SDK
   - OpenAI through the official OpenAI SDK
@@ -64,7 +65,7 @@ More detail: [Getting started](docs/getting-started.md) · [Providers](docs/prov
 
 The folder holds:
 
-- `folderchat.db`: conversations, providers and encrypted API keys
+- `folderchat.db`: conversations, the text of attached files, providers and encrypted API keys
 - `keys/`: the encryption key ring (DPAPI-protected on Windows)
 - `logs/`: daily log files
 
@@ -80,7 +81,7 @@ FolderChat is a local app that holds your API keys, so it locks itself down by d
 - API keys are encrypted with ASP.NET Core Data Protection and never returned by the API.
 - Model replies are rendered as sanitized Markdown (DOMPurify), so a reply can't run script in the page.
 
-When you chat with a cloud provider, your messages go to that provider under its terms. See [SECURITY.md](SECURITY.md) to report a vulnerability.
+When you chat with a cloud provider, your messages, and the text of any files you attach, go to that provider under its terms. See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## How it works
 
@@ -93,14 +94,15 @@ Browser (Razor + vanilla JS)  ──SSE──  ASP.NET Core 10 (controllers)
            Anthropic SDK    OpenAI SDK      OpenAI SDK + base URL    OllamaSharp
               Claude          GPT          DeepSeek, Kimi, GLM, …    local models
 
-                         EF Core + SQLite (conversations, providers)
+              EF Core + SQLite (conversations, attachment text, providers)
+             PdfPig + Open XML SDK (read attached PDF and Word files locally)
 ```
 
 Every provider sits behind the same `IChatClient` interface, so adding one is a small, self-contained change. See [Architecture](docs/architecture.md).
 
 ## Roadmap
 
-- **v0.2 Attachments:** attach PDF, Word and text files to a message.
+- **v0.2 Attachments** (done): attach PDF, Word and text files to a message.
 - **v0.3 Knowledge folders:** index a folder in the background and get answers with citations.
 - **v0.4 Polish:** token and cost display, a local-only mode, PWA install.
 - **v1.0 Releases:** single-file builds for Windows, macOS and Linux, plus a Docker image.

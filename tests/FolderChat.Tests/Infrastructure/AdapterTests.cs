@@ -1,5 +1,8 @@
 using System.Text;
+using System.Text.Json;
+using FolderChat.Application.Chat;
 using FolderChat.Application.Common;
+using FolderChat.Core.Conversations;
 using FolderChat.Core.Providers;
 using FolderChat.Infrastructure.AI;
 using FolderChat.Tests.Fakes;
@@ -30,6 +33,29 @@ public sealed class AdapterTests
         Assert.Equal(expectedUrl, request.Uri.ToString());
         Assert.Equal("Bearer test-key", request.Headers["Authorization"]);
         Assert.Contains("\"model\":\"glm-4.6\"", request.Body);
+    }
+
+    [Fact]
+    public async Task Attached_files_reach_OpenAI_compatible_providers_as_plain_text()
+    {
+        // Some OpenAI-compatible APIs accept only a string as a message's content, not a list of parts.
+        var handler = new StubHttpHandler(_ => StubHttpHandler.Text(OpenAIStream("Done"), "text/event-stream"));
+        var message = new ConversationMessage
+        {
+            Role = MessageRole.User,
+            Content = "Summarize",
+            Attachments = [new Attachment { FileName = "notes.txt", MediaType = "text/plain", Text = "Meeting at 10." }],
+        };
+
+        using var client = new ChatClientFactory(Clients(handler)).Create(Provider(ProviderKind.OpenAICompatible, "https://api.deepseek.com", "key"), new ProviderModel { ModelId = "deepseek-chat" });
+        await foreach (var _ in client.GetStreamingResponseAsync([new ChatMessage(ChatRole.User, ChatService.ComposeUserText(message))]))
+        {
+        }
+
+        using var body = JsonDocument.Parse(handler.Requests.Single().Body!);
+        var content = body.RootElement.GetProperty("messages")[0].GetProperty("content");
+        Assert.Equal(JsonValueKind.String, content.ValueKind);
+        Assert.Equal("<document name=\"notes.txt\">\nMeeting at 10.\n</document>\n\nSummarize", content.GetString());
     }
 
     [Fact]

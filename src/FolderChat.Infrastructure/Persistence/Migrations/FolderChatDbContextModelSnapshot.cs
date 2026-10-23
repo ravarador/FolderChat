@@ -17,6 +17,50 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
 
+            modelBuilder.Entity("FolderChat.Core.Conversations.Attachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsTruncated")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MediaType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("MessageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("PageCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MessageId");
+
+                    b.ToTable("Attachments");
+                });
+
             modelBuilder.Entity("FolderChat.Core.Conversations.Conversation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -174,6 +218,14 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
                     b.ToTable("ProviderModels");
                 });
 
+            modelBuilder.Entity("FolderChat.Core.Conversations.Attachment", b =>
+                {
+                    b.HasOne("FolderChat.Core.Conversations.ConversationMessage", null)
+                        .WithMany("Attachments")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("FolderChat.Core.Conversations.ConversationMessage", b =>
                 {
                     b.HasOne("FolderChat.Core.Conversations.Conversation", null)
@@ -195,6 +247,11 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("FolderChat.Core.Conversations.Conversation", b =>
                 {
                     b.Navigation("Messages");
+                });
+
+            modelBuilder.Entity("FolderChat.Core.Conversations.ConversationMessage", b =>
+                {
+                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("FolderChat.Core.Providers.Provider", b =>

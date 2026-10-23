@@ -71,6 +71,15 @@ Most providers don't need a new kind: if they speak OpenAI's chat-completions fo
 5. Map its exceptions in `ProviderErrorDescriber`.
 6. Add adapter tests in `tests/FolderChat.Tests/Infrastructure/AdapterTests.cs` with a scripted response, then add it to the Settings type list and the docs.
 
+## Reading a new file type
+
+Attached files are read by `TextExtractor` in `src/FolderChat.Infrastructure/Documents`. Any file that decodes as text already works, so a new type is only needed for binary formats.
+
+1. Recognize the format in `TextExtractor.Identify`, by its first bytes where it has a signature.
+2. Write a reader next to `PdfText` and `WordText` that returns an `ExtractedText`. Collect the text with `BoundedText`, so reading stops at the length limit.
+3. Add tests to `tests/FolderChat.Tests/Infrastructure/TextExtractorTests.cs`. Build the sample file in memory, as `TestFiles` does, instead of committing a binary file.
+4. Update the list of readable files in `TextExtractor`'s messages, the README and `docs/getting-started.md`.
+
 ## Reporting security issues
 
 Please don't open a public issue. See [SECURITY.md](SECURITY.md).

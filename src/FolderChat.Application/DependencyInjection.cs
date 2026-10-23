@@ -1,3 +1,4 @@
+using FolderChat.Application.Attachments;
 using FolderChat.Application.Chat;
 using FolderChat.Application.Conversations;
 using FolderChat.Application.Providers;
@@ -14,6 +15,7 @@ public static class DependencyInjection
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<ProviderService>();
         services.AddScoped<ConversationService>();
+        services.AddScoped<AttachmentService>();
         services.AddScoped<ChatService>();
         return services;
     }

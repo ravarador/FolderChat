@@ -21,6 +21,8 @@ Each folder contains the component's license file.
 | OpenAI (official OpenAI SDK) | MIT |
 | Microsoft.Extensions.AI.* | MIT |
 | OllamaSharp | MIT |
+| PdfPig (reads attached PDFs) | Apache-2.0 |
+| DocumentFormat.OpenXml (Open XML SDK, reads attached Word documents) | MIT |
 | Microsoft.EntityFrameworkCore.Sqlite | MIT |
 | Serilog.AspNetCore | Apache-2.0 |
 | xunit.v3 (tests only) | Apache-2.0 |

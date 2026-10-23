@@ -1,3 +1,4 @@
+using FolderChat.Application.Attachments;
 using FolderChat.Core.Conversations;
 
 namespace FolderChat.Application.Conversations;
@@ -23,4 +24,5 @@ public sealed record MessageDto(
     string? ModelId,
     long? InputTokens,
     long? OutputTokens,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    IReadOnlyList<AttachmentSummaryDto> Attachments);

@@ -184,14 +184,126 @@ body {
 
 .composer {
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
+}
+
+.composer-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
 }
 
 .composer textarea {
     max-height: 12rem;
     resize: none;
+}
+
+/* ---------- Attached files ---------- */
+
+.attachment-tray,
+.message-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
+/* Ten files on a phone would otherwise push the conversation off the screen. */
+.attachment-tray {
+    max-height: 35vh;
+    overflow-y: auto;
+}
+
+.message-attachments {
+    justify-content: flex-end;
+    max-width: 85%;
+    margin-bottom: 0.375rem;
+}
+
+.attachment-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 18rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+    background: var(--bs-body-bg);
+}
+
+.attachment-chip .icon-btn {
+    align-self: stretch;
+    padding: 0 0.5rem;
+}
+
+.attachment-open {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    padding: 0.25rem 0.5rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+}
+
+.attachment-open:disabled {
+    cursor: default;
+}
+
+.attachment-open:not(:disabled):hover .attachment-name,
+.attachment-open:focus-visible .attachment-name {
+    text-decoration: underline;
+}
+
+.attachment-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.attachment-detail {
+    display: flex;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color);
+}
+
+.attachment-chip.is-truncated .attachment-detail {
+    color: var(--bs-warning-text-emphasis);
+}
+
+.attachment-chip.is-failed {
+    border-color: var(--bs-danger-border-subtle);
+    background: var(--bs-danger-bg-subtle);
+}
+
+.attachment-chip.is-failed .attachment-detail {
+    color: var(--bs-danger-text-emphasis);
+}
+
+.drop-zone {
+    position: absolute;
+    inset: 0.5rem;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--bs-primary);
+    border-radius: 0.75rem;
+    background: rgba(var(--bs-body-bg-rgb), 0.9);
+    color: var(--bs-primary-text-emphasis);
+    font-weight: 600;
+    pointer-events: none;
+}
+
+.attachment-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 0.8rem;
 }
 
 /* ---------- Rendered Markdown ---------- */
