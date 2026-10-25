@@ -4,6 +4,32 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-23
+
+### Added
+
+- Knowledge folders: add a folder on your computer, and FolderChat reads its PDF, Word (.docx) and text files in the background.
+- Each chat answers from its own folders: tick one or several (up to 10) under **Folders**, next to the message box, or add a new folder from there. A new chat starts with none, and reopening a chat brings back its folders.
+- Add a folder by choosing it in your computer's own folder window: File Explorer's on Windows, Finder's on a Mac, and zenity's or kdialog's on Linux. Where the window can't open, such as for a browser on another device, you paste the folder's path instead.
+- Three effort levels for folder answers, chosen per chat:
+  - **Quick:** FolderChat searches once with your question and sends the best passages. Works with every model.
+  - **Standard:** the model searches the folders itself, trying other words if needed.
+  - **Thorough:** more searching, and the model can also read whole pages and look through the list of files.
+- Replies cite passages as [1], [2] and so on, and list their sources. Click a citation to see the exact passage the model was given, and to show the file in File Explorer or Finder.
+- Search uses SQLite's full-text index, with nothing extra to install. It matches words (with "costs" also finding "cost"), not meaning, which is why Standard and Thorough let the model try other words.
+- Folders are checked for new, changed and deleted files every five minutes, or when you click **Check for changes**. Only changed files are read again.
+- Settings shows each folder's progress and every file found, with the reason any file was skipped: an image, a scan, too large, stored online only, and so on.
+- Optional summaries: a model of your choice writes a short summary of each file, and Thorough answers use them to pick files. Off by default, and a local model is suggested so the files stay on your computer.
+- Models that can't use tools get a Quick search instead, automatically.
+
+### Changed
+
+- The database now uses write-ahead logging, so chats can search a folder while it's being read. You'll see `folderchat.db-wal` and `folderchat.db-shm` next to `folderchat.db`.
+
+### Fixed
+
+- Code highlighting and copy buttons could disappear from a reply when its last words arrived just before it finished.
+
 ## [0.2.0] - 2026-10-23
 
 ### Added

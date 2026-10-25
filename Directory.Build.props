@@ -6,7 +6,7 @@
     <LangVersion>latest</LangVersion>
     <Authors>Ravni Arador</Authors>
     <Product>FolderChat</Product>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <RepositoryUrl>https://github.com/ravarador/FolderChat</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>

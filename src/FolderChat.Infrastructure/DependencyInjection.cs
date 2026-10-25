@@ -1,6 +1,7 @@
 using FolderChat.Application.Abstractions;
 using FolderChat.Infrastructure.AI;
 using FolderChat.Infrastructure.Documents;
+using FolderChat.Infrastructure.Knowledge;
 using FolderChat.Infrastructure.Persistence;
 using FolderChat.Infrastructure.Security;
 using Microsoft.AspNetCore.DataProtection;
@@ -17,7 +18,7 @@ namespace FolderChat.Infrastructure;
 
 public static class DependencyInjection
 {
-    /// <summary>Registers storage, encryption, the provider adapters and the readers for attached files.</summary>
+    /// <summary>Registers storage, encryption, the provider adapters, the file readers and the folder indexer.</summary>
     public static IServiceCollection AddFolderChatInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<FolderChatOptions>().Bind(configuration.GetSection(FolderChatOptions.SectionName));
@@ -30,6 +31,14 @@ public static class DependencyInjection
         services.AddScoped<IProviderStore, EfProviderStore>();
         services.AddScoped<IConversationStore, EfConversationStore>();
         services.AddScoped<IAttachmentStore, EfAttachmentStore>();
+        services.AddScoped<IKnowledgeStore, EfKnowledgeStore>();
+        services.AddScoped<IKnowledgeIndex, KnowledgeIndex>();
+
+        // One background service scans folders; the app asks it for scans and progress through IFolderScanQueue.
+        services.AddScoped<FolderScanner>();
+        services.AddSingleton<FolderIndexer>();
+        services.AddSingleton<IFolderScanQueue>(sp => sp.GetRequiredService<FolderIndexer>());
+        services.AddHostedService(sp => sp.GetRequiredService<FolderIndexer>());
 
         services.AddDataProtection().SetApplicationName("FolderChat");
         services.AddOptions<KeyManagementOptions>()

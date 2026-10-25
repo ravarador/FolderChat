@@ -210,6 +210,116 @@ public sealed class ApiTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Folders_are_read_in_the_background_and_answer_chats()
+    {
+        using var docs = new TempFolder();
+        docs.Write("notes/costs.md", "Hosting costs fell 8% after the move.");
+        docs.Write("photo.jpg", [0xFF, 0xD8, 0xFF, 0xE0]);
+        app.ChatClients.Build = (_, _) => new FakeChatClient { Chunks = ["They fell 8% [1]."] };
+        var client = await app.CreateSignedInClientAsync();
+        var providerId = await CreateProviderWithModelsAsync(client);
+
+        var added = await (await client.PostAsJsonAsync("/api/folders", new { path = docs.Path })).ReadJsonAsync();
+        var folderId = added.GetProperty("id").GetString();
+        var folder = await WaitForScanAsync(client, folderId!);
+        Assert.Equal((1, 1), (folder.GetProperty("indexedFiles").GetInt32(), folder.GetProperty("skippedFiles").GetInt32()));
+
+        var files = (await (await client.GetAsync($"/api/folders/{folderId}/files")).ReadJsonAsync()).EnumerateArray().ToList();
+        Assert.Equal(["notes/costs.md", "photo.jpg"], files.Select(f => f.GetProperty("path").GetString()));
+        Assert.Equal("Skipped", files[1].GetProperty("status").GetString());
+
+        var stream = await client.PostAsJsonAsync("/api/chat/stream", new { providerId, modelId = "model-a", message = "What happened to hosting costs?", folderIds = new[] { folderId }, effort = "Quick" });
+        var events = HttpExtensions.ParseServerSentEvents(await stream.Content.ReadAsStringAsync());
+        Assert.Equal(["started", "activity", "delta", "sources", "completed"], events.Select(e => e.Event));
+        var source = events[3].Data.GetProperty("sources")[0];
+        Assert.Equal("notes/costs.md", source.GetProperty("path").GetString());
+
+        var conversationId = events[0].Data.GetProperty("conversationId").GetString();
+        var conversation = await (await client.GetAsync($"/api/conversations/{conversationId}")).ReadJsonAsync();
+        Assert.Equal([folderId], conversation.GetProperty("folderIds").EnumerateArray().Select(id => id.GetString()));
+        Assert.Equal("Quick", conversation.GetProperty("effort").GetString());
+        Assert.Equal(1, conversation.GetProperty("messages")[1].GetProperty("sources").GetArrayLength());
+
+        // A chat's folders can change without sending a message.
+        var update = await client.PutAsJsonAsync($"/api/conversations/{conversationId}/folders", new { folderIds = Array.Empty<string>(), effort = "Thorough" });
+        Assert.Equal(HttpStatusCode.NoContent, update.StatusCode);
+        var updated = await (await client.GetAsync($"/api/conversations/{conversationId}")).ReadJsonAsync();
+        Assert.Equal((0, "Thorough"), (updated.GetProperty("folderIds").GetArrayLength(), updated.GetProperty("effort").GetString()));
+
+        var passageId = source.GetProperty("passageId").GetInt64();
+        var passage = await (await client.GetAsync($"/api/folders/passages/{passageId}")).ReadJsonAsync();
+        Assert.Equal("Hosting costs fell 8% after the move.", passage.GetProperty("text").GetString());
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/folders/{folderId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/folders/passages/{passageId}")).StatusCode);
+        Assert.True(File.Exists(docs.FullPath("notes/costs.md")));
+    }
+
+    [Fact]
+    public async Task Folders_that_dont_exist_get_a_readable_problem()
+    {
+        var client = await app.CreateSignedInClientAsync();
+
+        var response = await client.PostAsJsonAsync("/api/folders", new { path = Path.Combine(Path.GetTempPath(), "folderchat-tests", "no-such-folder") });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.StartsWith("FolderChat can't find that folder.", problem.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Choosing_a_folder_adds_it_or_finds_the_one_already_added()
+    {
+        using var docs = new TempFolder();
+        var client = await app.CreateSignedInClientAsync();
+        Assert.Contains("data-choose-folders=\"true\"", await client.GetStringAsync("/"));
+        Assert.Contains("id=\"folder-choose\"", await client.GetStringAsync("/Home/Settings"));
+
+        app.FolderPicker.Choice = null; // the user closes the window
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync("/api/folders/choose", null)).StatusCode);
+
+        app.FolderPicker.Choice = docs.Path;
+        var first = await (await client.PostAsync("/api/folders/choose", null)).ReadJsonAsync();
+        var again = await (await client.PostAsync("/api/folders/choose", null)).ReadJsonAsync();
+
+        Assert.Equal((true, docs.Path), (first.GetProperty("added").GetBoolean(), first.GetProperty("folder").GetProperty("path").GetString()));
+        Assert.False(again.GetProperty("added").GetBoolean());
+        Assert.Equal(first.GetProperty("folder").GetProperty("id").GetString(), again.GetProperty("folder").GetProperty("id").GetString());
+        Assert.Equal(3, app.FolderPicker.Opened);
+    }
+
+    [Fact]
+    public async Task Without_a_desktop_folders_are_added_by_their_path()
+    {
+        app.FolderPicker.IsAvailable = false;
+        var client = await app.CreateSignedInClientAsync();
+
+        var response = await client.PostAsync("/api/folders/choose", null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(0, app.FolderPicker.Opened);
+        Assert.Contains("data-choose-folders=\"false\"", await client.GetStringAsync("/"));
+        Assert.DoesNotContain("id=\"folder-choose\"", await client.GetStringAsync("/Home/Settings"));
+    }
+
+    /// <summary>Waits for the background scan of a folder to finish, and returns the folder.</summary>
+    private static async Task<JsonElement> WaitForScanAsync(HttpClient client, string folderId)
+    {
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            var folder = await (await client.GetAsync($"/api/folders/{folderId}")).ReadJsonAsync();
+            if (folder.GetProperty("scan").ValueKind == JsonValueKind.Null && folder.GetProperty("lastScannedAt").ValueKind != JsonValueKind.Null)
+            {
+                return folder;
+            }
+
+            await Task.Delay(100);
+        }
+
+        throw new TimeoutException("The folder wasn't scanned within 10 seconds.");
+    }
+
     private static async Task<HttpResponseMessage> UploadAsync(HttpClient client, string fileName, byte[] content)
     {
         using var form = new MultipartFormDataContent { { new ByteArrayContent(content), "file", fileName } };

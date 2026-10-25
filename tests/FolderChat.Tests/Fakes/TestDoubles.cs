@@ -1,6 +1,7 @@
 using FolderChat.Application.Abstractions;
 using FolderChat.Core.Providers;
 using FolderChat.Infrastructure.Persistence;
+using FolderChat.Web.Infrastructure;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,6 +28,40 @@ internal sealed class FakeSecretProtector : ISecretProtector
 internal sealed class MessageErrorDescriber : IProviderErrorDescriber
 {
     public string Describe(Exception exception, ProviderKind kind) => exception.Message;
+}
+
+/// <summary>Records scan requests instead of scanning. Tests run the scanner themselves.</summary>
+internal sealed class FakeScanQueue : IFolderScanQueue
+{
+    public List<Guid> Enqueued { get; } = [];
+
+    public List<Guid> Cancelled { get; } = [];
+
+    /// <summary>Progress to report for every folder, as if a scan were running.</summary>
+    public ScanProgress? Progress { get; set; }
+
+    public void Enqueue(Guid folderId) => Enqueued.Add(folderId);
+
+    public ScanProgress? GetProgress(Guid folderId) => Progress;
+
+    public void Cancel(Guid folderId) => Cancelled.Add(folderId);
+}
+
+/// <summary>Stands in for the computer's own folder window, which tests must never open.</summary>
+internal sealed class FakeFolderPicker : IFolderPicker
+{
+    public bool IsAvailable { get; set; } = true;
+
+    /// <summary>The folder the user chooses, or null when they cancel.</summary>
+    public string? Choice { get; set; }
+
+    public int Opened { get; private set; }
+
+    public Task<string?> ChooseAsync(CancellationToken ct)
+    {
+        Opened++;
+        return Task.FromResult(Choice);
+    }
 }
 
 internal sealed class ManualClock(DateTimeOffset start) : TimeProvider

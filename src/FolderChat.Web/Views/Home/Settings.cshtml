@@ -1,5 +1,8 @@
+@using FolderChat.Web.Infrastructure
+@inject IFolderPicker FolderPicker
 @{
     ViewData["Title"] = "Settings";
+    var canChooseFolders = FolderPicker.CanOpenFor(Context);
 }
 
 <div class="settings-page container py-4">
@@ -14,6 +17,75 @@
 
     <div id="provider-list" class="vstack gap-3"></div>
     <p id="no-providers" class="text-body-secondary d-none">No providers yet. Add one to start chatting.</p>
+
+    <section class="mt-5" aria-labelledby="folders-heading">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <h2 class="h4 mb-0" id="folders-heading">Knowledge folders</h2>
+            @if (canChooseFolders)
+            {
+                <button id="folder-choose" class="btn btn-primary btn-sm ms-auto" type="button">Choose folder…</button>
+            }
+        </div>
+        <p class="small text-body-secondary">
+            FolderChat reads the PDF, Word and text files in these folders, on this computer, so chats can answer from them.
+            When you ask a question, only the passages it needs go to the model.
+        </p>
+
+        <form id="folder-form" class="row g-2 align-items-start mb-3" autocomplete="off">
+            <div class="col-md">
+                <label class="form-label small mb-1" for="folder-path">@(canChooseFolders ? "Or paste a folder's path" : "Folder path")</label>
+                <input id="folder-path" class="form-control" placeholder="@FolderPathHint.Example" required />
+                <div class="form-text">@FolderPathHint.Tip</div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1" for="folder-name">Name (optional)</label>
+                <input id="folder-name" class="form-control" maxlength="100" />
+            </div>
+            <div class="col-md-auto folder-add-cell">
+                <button id="folder-add" class="btn @(canChooseFolders ? "btn-outline-primary" : "btn-primary")" type="submit">Add folder</button>
+            </div>
+        </form>
+
+        <div id="folder-list" class="vstack gap-3"></div>
+        <p id="no-folders" class="text-body-secondary d-none">No folders yet. Add one here, or from Folders in any chat.</p>
+    </section>
+</div>
+
+<div class="modal fade" id="folder-modal" tabindex="-1" aria-labelledby="folder-modal-title" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="folder-edit-form" class="modal-content" autocomplete="off">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="folder-modal-title">Edit folder</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body vstack gap-3">
+                <div>
+                    <label class="form-label" for="folder-edit-name">Name</label>
+                    <input id="folder-edit-name" class="form-control" maxlength="100" required />
+                </div>
+                <div>
+                    <div class="form-check form-switch">
+                        <input id="folder-summaries" class="form-check-input" type="checkbox" />
+                        <label class="form-check-label" for="folder-summaries">Write a short summary of each file</label>
+                    </div>
+                    <div class="form-text">
+                        Thorough answers use the summaries to pick which files to read.
+                        A model reads the start of every file to write them, which takes a while for big folders.
+                    </div>
+                </div>
+                <div id="folder-summary-model-group" class="d-none">
+                    <label class="form-label" for="folder-summary-model">Model that writes the summaries</label>
+                    <select id="folder-summary-model" class="form-select"></select>
+                    <div id="folder-summary-privacy" class="form-text"></div>
+                </div>
+                <div id="folder-edit-error" class="alert alert-danger d-none mb-0"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button id="folder-edit-save" type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div class="modal fade" id="provider-modal" tabindex="-1" aria-labelledby="provider-modal-title" aria-hidden="true">
@@ -68,4 +140,5 @@
 
 @section Scripts {
     <script src="~/js/settings.js" asp-append-version="true"></script>
+    <script src="~/js/folders.js" asp-append-version="true"></script>
 }

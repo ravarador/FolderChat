@@ -64,7 +64,7 @@
         text.textContent = message;
         const close = document.createElement("button");
         close.type = "button";
-        close.className = "btn-close btn-close-white me-2 m-auto";
+        close.className = `btn-close ${["warning", "info"].includes(kind) ? "" : "btn-close-white"} me-2 m-auto`; // dark on light colors
         close.setAttribute("data-bs-dismiss", "toast");
         close.setAttribute("aria-label", "Close");
         row.append(text, close);

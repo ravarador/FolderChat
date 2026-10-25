@@ -69,6 +69,15 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Effort")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.PrimitiveCollection<string>("FolderIds")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ModelId")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
@@ -146,6 +155,130 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Messages", (string)null);
+                });
+
+            modelBuilder.Entity("FolderChat.Core.Knowledge.KnowledgeFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CharacterCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("FolderId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("IndexedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsTruncated")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastWriteTimeUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MediaType")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("PageCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RelativePath")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Summary")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FolderId", "RelativePath")
+                        .IsUnique();
+
+                    b.ToTable("KnowledgeFiles");
+                });
+
+            modelBuilder.Entity("FolderChat.Core.Knowledge.KnowledgeFolder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastScannedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ScanError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("SummariesEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SummaryModelId")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("SummaryProviderId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("KnowledgeFolders");
+                });
+
+            modelBuilder.Entity("FolderChat.Core.Knowledge.Passage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("FileId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("PageNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("StartOffset")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileId", "Ordinal");
+
+                    b.ToTable("Passages");
                 });
 
             modelBuilder.Entity("FolderChat.Core.Providers.Provider", b =>
@@ -233,6 +366,59 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.OwnsMany("FolderChat.Core.Conversations.MessageSource", "Sources", b1 =>
+                        {
+                            b1.Property<Guid>("ConversationMessageId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAddOrUpdate();
+
+                            b1.Property<Guid>("FileId");
+
+                            b1.Property<Guid>("FolderId");
+
+                            b1.Property<int>("Number");
+
+                            b1.Property<int?>("Page");
+
+                            b1.Property<long>("PassageId");
+
+                            b1.Property<string>("Path")
+                                .IsRequired()
+                                .HasMaxLength(1024);
+
+                            b1.HasKey("ConversationMessageId", "__synthesizedOrdinal");
+
+                            b1.ToTable("Messages");
+
+                            b1
+                                .ToJson("Sources")
+                                .HasColumnType("TEXT");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ConversationMessageId");
+                        });
+
+                    b.Navigation("Sources");
+                });
+
+            modelBuilder.Entity("FolderChat.Core.Knowledge.KnowledgeFile", b =>
+                {
+                    b.HasOne("FolderChat.Core.Knowledge.KnowledgeFolder", null)
+                        .WithMany("Files")
+                        .HasForeignKey("FolderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FolderChat.Core.Knowledge.Passage", b =>
+                {
+                    b.HasOne("FolderChat.Core.Knowledge.KnowledgeFile", null)
+                        .WithMany()
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("FolderChat.Core.Providers.ProviderModel", b =>
@@ -252,6 +438,11 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("FolderChat.Core.Conversations.ConversationMessage", b =>
                 {
                     b.Navigation("Attachments");
+                });
+
+            modelBuilder.Entity("FolderChat.Core.Knowledge.KnowledgeFolder", b =>
+                {
+                    b.Navigation("Files");
                 });
 
             modelBuilder.Entity("FolderChat.Core.Providers.Provider", b =>

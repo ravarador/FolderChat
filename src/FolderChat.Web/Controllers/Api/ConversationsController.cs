@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using FolderChat.Application.Conversations;
+using FolderChat.Core.Knowledge;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FolderChat.Web.Controllers.Api;
@@ -26,6 +27,19 @@ public sealed class ConversationsController(ConversationService conversations) :
             await conversations.DeleteAsync(id, ct);
             return NoContent();
         });
+
+    /// <summary>Sets the knowledge folders this chat answers from, and how hard it searches them.</summary>
+    [HttpPut("{id:guid}/folders")]
+    public Task<IActionResult> SetFolders(Guid id, SetChatFoldersRequest request, CancellationToken ct) =>
+        Handle(async () =>
+        {
+            await conversations.SetFoldersAsync(id, request.FolderIds, request.Effort, ct);
+            return NoContent();
+        });
 }
 
 public sealed record RenameConversationRequest([Required] string Title);
+
+/// <param name="FolderIds">The folders, empty for none.</param>
+/// <param name="Effort">Quick, Standard or Thorough.</param>
+public sealed record SetChatFoldersRequest(IReadOnlyList<Guid>? FolderIds, SearchEffort Effort = SearchEffort.Standard);

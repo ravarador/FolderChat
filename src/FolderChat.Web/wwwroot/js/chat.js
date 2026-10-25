@@ -1,4 +1,4 @@
-// The chat page: model picker, conversation list, attached files and streamed replies.
+// The chat page: model picker, conversation list, each chat's folders, attached files, and streamed replies with their sources.
 (() => {
     const { api, toast, csrfToken, readError } = window.folderChat;
     const markdown = window.folderChatMarkdown;
@@ -17,35 +17,58 @@
         emptyText: document.getElementById("empty-state-text"),
         dropZone: document.getElementById("drop-zone"),
         composer: document.getElementById("composer"),
+        folderBar: document.getElementById("folder-bar"),
+        folderChips: document.getElementById("folder-chips"),
+        effortPicker: document.getElementById("effort-picker"),
+        foldersButton: document.getElementById("folders-button"),
+        folderMenu: document.getElementById("folder-menu"),
+        newFolderModal: document.getElementById("new-folder-modal"),
+        newFolderForm: document.getElementById("new-folder-form"),
+        newFolderPath: document.getElementById("new-folder-path"),
+        newFolderName: document.getElementById("new-folder-name"),
+        newFolderError: document.getElementById("new-folder-error"),
+        newFolderSave: document.getElementById("new-folder-save"),
         tray: document.getElementById("attachment-tray"),
         attach: document.getElementById("attach"),
         fileInput: document.getElementById("file-input"),
         prompt: document.getElementById("prompt"),
         send: document.getElementById("send"),
         stop: document.getElementById("stop"),
-        attachmentModal: document.getElementById("attachment-modal"),
-        attachmentTitle: document.getElementById("attachment-modal-title"),
-        attachmentInfo: document.getElementById("attachment-modal-info"),
-        attachmentText: document.getElementById("attachment-modal-text"),
+        previewModal: document.getElementById("preview-modal"),
+        previewTitle: document.getElementById("preview-title"),
+        previewInfo: document.getElementById("preview-info"),
+        previewText: document.getElementById("preview-text"),
+        previewFooter: document.getElementById("preview-footer"),
+        previewReveal: document.getElementById("preview-reveal"),
     };
 
     // The server's limits, rendered into the page.
     const limits = {
         fileSize: Number(els.composer.dataset.maxFileSize),
         files: Number(els.composer.dataset.maxFiles),
+        folders: Number(els.composer.dataset.maxFolders),
     };
+
+    // Whether the server can open the computer's own folder window for this browser. If not, folders are added by path.
+    const canChooseFolders = els.composer.dataset.chooseFolders === "true";
 
     const state = {
         conversations: [],
         currentId: null, // null means a new, unsaved chat
         providers: [], // providers with enabled models, from /api/providers/picker
+        folders: [], // every knowledge folder, from /api/folders
+        chatFolders: [], // the IDs of the folders the open chat answers from
+        chatEffort: "Standard", // how hard the open chat searches them
+        choosingFolder: false, // the computer's folder window is open
         streaming: null, // the AbortController of the reply being streamed
         attachments: [], // files in the composer: { name, status: "uploading" | "ready" | "failed", attachment, error }
     };
 
-    const attachmentModal = bootstrap.Modal.getOrCreateInstance(els.attachmentModal);
+    const previewModal = bootstrap.Modal.getOrCreateInstance(els.previewModal);
+    const newFolderModal = bootstrap.Modal.getOrCreateInstance(els.newFolderModal);
     const compactNumber = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
     let previewRequest = 0;
+    let previewReveal = null; // what the preview's "Show in folder" button does, when it's shown
 
     // ---------- Model picker ----------
 
@@ -66,19 +89,11 @@
         if (state.providers.length === 0) {
             els.picker.append(new Option("No models yet", ""));
         } else {
-            selectModel(readStoredModel());
+            selectModel(readStored(MODEL_KEY));
         }
 
         updatePrivacyBadge();
         updateEmptyState();
-    }
-
-    function readStoredModel() {
-        try {
-            return localStorage.getItem(MODEL_KEY);
-        } catch {
-            return null;
-        }
     }
 
     function selectModel(value) {
@@ -106,15 +121,232 @@
 
         els.privacy.className = `badge rounded-pill ${provider.isLocal ? "text-bg-success" : "text-bg-secondary"}`;
         els.privacy.textContent = provider.isLocal ? "Stays on this computer" : `Sent to ${provider.name}`;
+        els.privacy.title = provider.isLocal
+            ? "Your messages, and any files and folder passages with them, stay on this computer."
+            : `Your messages, and any files and folder passages with them, are sent to ${provider.name}.`;
     }
 
     els.picker.addEventListener("change", () => {
+        remember(MODEL_KEY, els.picker.value);
+        updatePrivacyBadge();
+    });
+
+    function remember(key, value) {
         try {
-            localStorage.setItem(MODEL_KEY, els.picker.value);
+            localStorage.setItem(key, value);
         } catch {
             // Not remembered; harmless.
         }
-        updatePrivacyBadge();
+    }
+
+    function readStored(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch {
+            return null;
+        }
+    }
+
+    // ---------- This chat's folders ----------
+
+    async function loadFolders() {
+        state.folders = await api.get("/api/folders");
+        renderFolderControls();
+    }
+
+    /** Sets the folders the open chat answers from. Folders removed since are left out. */
+    function setChatFolders(folderIds, effort) {
+        state.chatFolders = (folderIds ?? []).filter(id => state.folders.some(f => f.id === id));
+        state.chatEffort = effort ?? "Standard";
+        renderFolderControls();
+    }
+
+    function renderFolderControls() {
+        const chosen = state.chatFolders.map(id => state.folders.find(f => f.id === id)).filter(Boolean);
+        els.folderChips.replaceChildren(...chosen.map(folderChip));
+        els.folderBar.classList.toggle("d-none", chosen.length === 0);
+        els.effortPicker.value = state.chatEffort;
+        els.effortPicker.title = els.effortPicker.selectedOptions[0]?.title ?? "";
+        els.foldersButton.textContent = chosen.length ? `Folders (${chosen.length})` : "Folders";
+        renderFolderMenu();
+        watchFolders();
+    }
+
+    function isReading(folder) {
+        return Boolean(folder.scan) && folder.indexedFiles === 0;
+    }
+
+    function describeFolder(folder) {
+        return isReading(folder) ? "reading…" : `${compactNumber.format(folder.indexedFiles)} ${folder.indexedFiles === 1 ? "file" : "files"}`;
+    }
+
+    function folderChip(folder) {
+        const chip = document.createElement("span");
+        chip.className = "folder-chip";
+        chip.title = folder.path;
+        const name = document.createElement("span");
+        name.className = "folder-chip-name";
+        name.textContent = folder.name;
+        const detail = document.createElement("span");
+        detail.className = "folder-chip-detail";
+        detail.textContent = describeFolder(folder);
+        const remove = iconButton(`Stop answering from ${folder.name}`, "✕", () => toggleFolder(folder.id, false));
+        remove.title = "Remove from this chat";
+        remove.disabled = Boolean(state.streaming);
+        chip.append(name, detail, remove);
+        return chip;
+    }
+
+    /** The Folders menu: a checkbox for every folder, then ways to add and manage folders. */
+    function renderFolderMenu() {
+        const header = document.createElement("h6");
+        header.className = "dropdown-header";
+        header.textContent = "Choose folders for this chat to answer from";
+        const items = [header];
+
+        if (state.folders.length === 0) {
+            const none = document.createElement("div");
+            none.className = "dropdown-item-text small text-body-secondary";
+            none.textContent = "No folders yet.";
+            items.push(none);
+        } else if (state.chatFolders.length === 0) {
+            const none = document.createElement("div");
+            none.className = "dropdown-item-text small text-body-secondary";
+            none.textContent = "None chosen yet. Tick a folder to use it.";
+            items.push(none);
+        }
+
+        for (const folder of state.folders) {
+            const option = document.createElement("label");
+            option.className = "dropdown-item folder-option";
+            option.title = folder.path;
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "form-check-input";
+            checkbox.checked = state.chatFolders.includes(folder.id);
+            checkbox.addEventListener("change", () => toggleFolder(folder.id, checkbox.checked));
+            const name = document.createElement("span");
+            name.className = "folder-option-name";
+            name.textContent = folder.name;
+            const detail = document.createElement("span");
+            detail.className = "folder-option-detail";
+            detail.textContent = describeFolder(folder);
+            option.append(checkbox, name, detail);
+            items.push(option);
+        }
+
+        const divider = document.createElement("hr");
+        divider.className = "dropdown-divider";
+        const add = document.createElement("button");
+        add.type = "button";
+        add.className = "dropdown-item";
+        add.textContent = "Add a folder…";
+        add.addEventListener("click", canChooseFolders ? chooseFolder : openNewFolder);
+        const manage = document.createElement("a");
+        manage.className = "dropdown-item";
+        manage.href = "/Home/Settings#folders-heading";
+        manage.textContent = "Manage folders";
+        items.push(divider, add, manage);
+
+        els.folderMenu.replaceChildren(...items);
+    }
+
+    async function toggleFolder(folderId, on) {
+        if (on && !state.chatFolders.includes(folderId)) {
+            if (state.chatFolders.length >= limits.folders) {
+                toast(`A chat can answer from up to ${limits.folders} folders.`, "warning");
+                renderFolderControls();
+                return;
+            }
+            state.chatFolders = [...state.chatFolders, folderId];
+        } else if (!on) {
+            state.chatFolders = state.chatFolders.filter(id => id !== folderId);
+        }
+        renderFolderControls();
+        await saveChatFolders();
+    }
+
+    /** Saves the open chat's folders and effort. A new chat saves them with its first message instead. */
+    async function saveChatFolders() {
+        if (!state.currentId) return;
+        try {
+            await api.put(`/api/conversations/${state.currentId}/folders`, { folderIds: state.chatFolders, effort: state.chatEffort });
+        } catch (error) {
+            toast(error.message);
+        }
+    }
+
+    els.effortPicker.addEventListener("change", () => {
+        state.chatEffort = els.effortPicker.value;
+        renderFolderControls();
+        saveChatFolders();
+    });
+
+    // While a folder this chat uses is still being read, refresh the list so its chip shows when it's ready.
+    let folderWatch = 0;
+    function watchFolders() {
+        clearTimeout(folderWatch);
+        if (!state.folders.some(f => f.scan && state.chatFolders.includes(f.id))) return;
+        folderWatch = setTimeout(async () => {
+            try {
+                state.folders = await api.get("/api/folders");
+            } catch {
+                // Try again on the next round.
+            }
+            renderFolderControls();
+        }, 2000);
+    }
+
+    /** Opens the computer's own folder window, File Explorer's on Windows, and has this chat use the folder chosen. */
+    async function chooseFolder() {
+        bootstrap.Dropdown.getOrCreateInstance(els.foldersButton).hide();
+        state.choosingFolder = true;
+        els.foldersButton.disabled = true;
+        try {
+            const chosen = await api.post("/api/folders/choose");
+            if (!chosen) return; // cancelled
+
+            const { folder, added } = chosen;
+            state.folders = [...state.folders.filter(f => f.id !== folder.id), folder].sort((a, b) => a.name.localeCompare(b.name));
+            await toggleFolder(folder.id, true);
+            if (added && state.chatFolders.includes(folder.id)) {
+                toast(`Added ${folder.name}. FolderChat is reading its files, so this chat can use them in a moment.`, "success");
+            }
+        } catch (error) {
+            toast(error.message);
+        } finally {
+            state.choosingFolder = false;
+            els.foldersButton.disabled = Boolean(state.streaming);
+        }
+    }
+
+    /** Adds a folder by its path, where the server can't open a folder window for this browser. */
+    function openNewFolder() {
+        bootstrap.Dropdown.getOrCreateInstance(els.foldersButton).hide();
+        els.newFolderPath.value = "";
+        els.newFolderName.value = "";
+        els.newFolderError.classList.add("d-none");
+        newFolderModal.show();
+    }
+
+    els.newFolderModal.addEventListener("shown.bs.modal", () => els.newFolderPath.focus());
+
+    els.newFolderForm.addEventListener("submit", async event => {
+        event.preventDefault();
+        els.newFolderError.classList.add("d-none");
+        els.newFolderSave.disabled = true;
+        try {
+            const folder = await api.post("/api/folders", { path: els.newFolderPath.value, name: els.newFolderName.value.trim() || null });
+            state.folders = [...state.folders, folder].sort((a, b) => a.name.localeCompare(b.name));
+            newFolderModal.hide();
+            await toggleFolder(folder.id, true);
+            toast(`Added ${folder.name}. FolderChat is reading its files, so this chat can use them in a moment.`, "success");
+        } catch (error) {
+            els.newFolderError.textContent = error.message;
+            els.newFolderError.classList.remove("d-none");
+        } finally {
+            els.newFolderSave.disabled = false;
+        }
     });
 
     // ---------- Conversation list ----------
@@ -187,6 +419,7 @@
                 selectModel(`${conversation.providerId}|${conversation.modelId}`);
                 updatePrivacyBadge();
             }
+            setChatFolders(conversation.folderIds, conversation.effort);
 
             history.replaceState(null, "", `#${conversation.id}`);
             renderConversationList();
@@ -200,6 +433,7 @@
     function newChat() {
         if (state.streaming) return;
         state.currentId = null;
+        setChatFolders([], "Standard"); // each chat chooses its own folders
         els.title.textContent = "";
         els.messages.replaceChildren();
         history.replaceState(null, "", location.pathname);
@@ -267,6 +501,7 @@
                 markdown.render(content, message.content);
                 markdown.enhance(content);
             }
+            renderSources(wrapper, message.sources, message.content);
             if (message.status === "Stopped") addNote(wrapper, "Stopped before the reply finished.");
             if (message.status === "Failed") addError(wrapper, message.error || "The reply failed.");
         }
@@ -303,7 +538,7 @@
             link.textContent = "Add a provider in Settings";
             els.emptyText.replaceChildren("No models are set up yet. ", link, ".");
         } else {
-            els.emptyText.textContent = "Pick a model above and send a message. You can attach PDF, Word and text files too.";
+            els.emptyText.textContent = "Pick a model above and send a message. Attach files, or choose Folders to answer from your own documents.";
         }
     }
 
@@ -421,24 +656,151 @@
     }
 
     /** Shows exactly what the model is sent for a file. */
-    async function showAttachment(summary) {
-        const request = ++previewRequest;
-        els.attachmentTitle.textContent = summary.fileName;
-        els.attachmentInfo.textContent = "Loading…";
-        els.attachmentText.textContent = "";
-        attachmentModal.show();
-
-        try {
+    function showAttachment(summary) {
+        showPreview(summary.fileName, async () => {
             const attachment = await api.get(`/api/attachments/${summary.id}`);
-            if (request !== previewRequest) return; // another file was opened meanwhile
-
-            els.attachmentInfo.textContent = attachment.isTruncated
+            const info = attachment.isTruncated
                 ? `This is the text FolderChat read from the file. The file holds more than FolderChat sends, so the model gets only these first ${attachment.characterCount.toLocaleString()} characters.`
                 : `This is the text FolderChat read from the file (${describeAttachment(attachment)}). The model gets exactly this with the message.`;
-            els.attachmentText.textContent = attachment.text;
+            return { info, text: attachment.text };
+        });
+    }
+
+    /** Opens the preview dialog and fills it from load(). reveal, when given, backs a "Show in folder" button. */
+    async function showPreview(title, load, reveal) {
+        const request = ++previewRequest;
+        els.previewTitle.textContent = title;
+        els.previewInfo.textContent = "Loading…";
+        els.previewText.textContent = "";
+        els.previewFooter.classList.toggle("d-none", !reveal);
+        previewReveal = reveal ?? null;
+        previewModal.show();
+
+        try {
+            const { info, text } = await load();
+            if (request !== previewRequest) return; // something else was opened meanwhile
+            els.previewInfo.textContent = info;
+            els.previewText.textContent = text;
         } catch (error) {
-            if (request === previewRequest) els.attachmentInfo.textContent = error.message;
+            if (request === previewRequest) els.previewInfo.textContent = error.message;
         }
+    }
+
+    els.previewReveal.addEventListener("click", async () => {
+        try {
+            await previewReveal?.();
+        } catch (error) {
+            toast(error.message);
+        }
+    });
+
+    // ---------- Folder sources ----------
+
+    /** Lines under the model's name saying what it did on the way, such as searching the folder. */
+    function addActivity(wrapper, text) {
+        let list = wrapper.querySelector(".message-activity");
+        if (!list) {
+            list = document.createElement("div");
+            list.className = "message-activity";
+            wrapper.querySelector(".message-meta").after(list);
+        }
+        const line = document.createElement("div");
+        line.textContent = text;
+        list.append(line);
+    }
+
+    /**
+     * Lists the passages a reply cited under it, and turns its [n] markers into links to them. When a reply cites
+     * nothing, it lists everything it was shown instead, so the user can still see where it looked.
+     */
+    function renderSources(wrapper, sources, replyText) {
+        wrapper.querySelector(".message-sources")?.remove();
+        if (!sources?.length) return;
+
+        const content = wrapper.querySelector(".content");
+        const cited = new Set([...(replyText ?? "").matchAll(/\[(\d{1,3})\]/g)].map(match => Number(match[1])));
+        const citedSources = sources.filter(source => cited.has(source.number));
+        const others = citedSources.length > 0 ? sources.filter(source => !cited.has(source.number)) : [];
+
+        const box = document.createElement("div");
+        box.className = "message-sources";
+        const label = document.createElement("span");
+        label.className = "message-sources-label";
+        label.textContent = citedSources.length > 0 ? "Sources" : "Looked at";
+        box.append(label, ...(citedSources.length > 0 ? citedSources : sources).map(source => sourceChip(source)));
+        if (others.length > 0) {
+            const more = document.createElement("button");
+            more.type = "button";
+            more.className = "btn btn-link btn-sm p-0 source-more";
+            more.textContent = `+${others.length} more read`;
+            more.addEventListener("click", () => more.replaceWith(...others.map(source => sourceChip(source, true))));
+            box.append(more);
+        }
+        content.after(box);
+        linkCitations(content, sources);
+    }
+
+    function sourceChip(source, uncited = false) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = `source-chip${uncited ? " is-uncited" : ""}`;
+        chip.title = describeSource(source);
+        const number = document.createElement("span");
+        number.className = "source-number";
+        number.textContent = source.number;
+        chip.append(number, `${source.path.split("/").pop()}${source.page ? ` · p. ${source.page}` : ""}`);
+        chip.addEventListener("click", () => showSource(source));
+        return chip;
+    }
+
+    /** Turns [n] markers in a rendered reply into buttons that open passage n. Code and links are left alone. */
+    function linkCitations(content, sources) {
+        const byNumber = new Map(sources.map(source => [source.number, source]));
+        const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, {
+            acceptNode: node => node.parentElement.closest("pre, code, a, button") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+        });
+        const nodes = [];
+        while (walker.nextNode()) {
+            if (/\[\d{1,3}\]/.test(walker.currentNode.nodeValue)) nodes.push(walker.currentNode);
+        }
+
+        for (const node of nodes) {
+            const fragment = document.createDocumentFragment();
+            for (const part of node.nodeValue.split(/(\[\d{1,3}\])/)) {
+                const source = byNumber.get(Number(/^\[(\d{1,3})\]$/.exec(part)?.[1]));
+                if (!source) {
+                    if (part) fragment.append(part);
+                    continue;
+                }
+                const link = document.createElement("button");
+                link.type = "button";
+                link.className = "citation";
+                link.textContent = source.number;
+                link.title = describeSource(source);
+                link.setAttribute("aria-label", `Source ${source.number}: ${describeSource(source)}`);
+                link.addEventListener("click", () => showSource(source));
+                fragment.append(link);
+            }
+            node.replaceWith(fragment);
+        }
+    }
+
+    function describeSource(source) {
+        const folder = state.folders.find(f => f.id === source.folderId);
+        const path = folder ? `${folder.name} › ${source.path}` : source.path;
+        return source.page ? `${path}, page ${source.page}` : path;
+    }
+
+    function showSource(source) {
+        const folder = state.folders.find(f => f.id === source.folderId);
+        showPreview(
+            describeSource(source),
+            async () => {
+                const passage = await api.get(`/api/folders/passages/${source.passageId}`);
+                const where = folder ? ` from ${folder.name}` : "";
+                return { info: `Passage [${source.number}]${where}, as the model was given it.`, text: passage.text };
+            },
+            () => api.post(`/api/folders/files/${source.fileId}/reveal`));
     }
 
     // ---------- Sending and streaming ----------
@@ -447,6 +809,9 @@
         els.send.classList.toggle("d-none", on);
         els.stop.classList.toggle("d-none", !on);
         els.picker.disabled = on || state.providers.length === 0;
+        els.foldersButton.disabled = on || state.choosingFolder;
+        els.effortPicker.disabled = on;
+        renderFolderControls(); // the chips' remove buttons too
         els.newChat.disabled = on;
     }
 
@@ -495,6 +860,9 @@
             renderQueued = true;
             requestAnimationFrame(() => {
                 renderQueued = false;
+
+                // A frame left over from streaming would undo the final render's highlighting and links.
+                if (finished || controller.signal.aborted) return;
                 markdown.render(content, replyText);
                 scrollToBottom(false);
             });
@@ -516,7 +884,10 @@
             modelId: selection.modelId,
             message: text,
             attachmentIds: files.map(file => file.id),
+            folderIds: state.chatFolders,
+            effort: state.chatEffort,
         };
+        let replySources = [];
         try {
             await streamChat(body, controller.signal, {
                 started: event => {
@@ -535,10 +906,18 @@
                     replyText += event.text;
                     renderSoon();
                 },
+                activity: event => {
+                    addActivity(reply, event.text);
+                    scrollToBottom(false);
+                },
+                sources: event => {
+                    replySources = event.sources;
+                },
                 completed: event => {
                     finished = true;
                     markdown.render(content, replyText);
                     markdown.enhance(content);
+                    renderSources(reply, replySources, replyText);
                     if (event.outputTokens) {
                         reply.querySelector(".message-meta").textContent += ` · ${event.outputTokens.toLocaleString()} tokens`;
                     }
@@ -552,6 +931,7 @@
                         return;
                     }
                     markdown.render(content, replyText);
+                    renderSources(reply, replySources, replyText);
                     addError(reply, event.error);
                 },
             });
@@ -679,7 +1059,7 @@
 
     (async () => {
         try {
-            await Promise.all([loadPicker(), loadConversations()]);
+            await Promise.all([loadPicker(), loadConversations(), loadFolders()]);
         } catch (error) {
             toast(error.message);
         }
