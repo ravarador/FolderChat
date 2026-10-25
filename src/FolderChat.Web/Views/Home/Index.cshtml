@@ -1,5 +1,8 @@
 ﻿@using FolderChat.Application.Attachments
 @using FolderChat.Application.Chat
+@using FolderChat.Application.Knowledge
+@using FolderChat.Web.Infrastructure
+@inject IFolderPicker FolderPicker
 @{
     ViewData["Title"] = "Chat";
 }
@@ -17,8 +20,10 @@
 
     <section id="chat-main" class="chat-main">
         <header class="chat-header border-bottom">
-            <label for="model-picker" class="small text-body-secondary mb-0">Model</label>
-            <select id="model-picker" class="form-select form-select-sm model-picker"></select>
+            <span class="picker-group">
+                <label for="model-picker" class="small text-body-secondary mb-0">Model</label>
+                <select id="model-picker" class="form-select form-select-sm model-picker"></select>
+            </span>
             <span id="privacy-badge" class="badge rounded-pill d-none"></span>
             <span id="chat-title" class="chat-title text-truncate small text-body-secondary"></span>
         </header>
@@ -33,11 +38,27 @@
         <div id="drop-zone" class="drop-zone d-none" aria-hidden="true">Drop files to attach them</div>
 
         <form id="composer" class="composer border-top" autocomplete="off"
-              data-max-file-size="@AttachmentService.MaxFileSize" data-max-files="@ChatService.MaxAttachments">
+              data-max-file-size="@AttachmentService.MaxFileSize" data-max-files="@ChatService.MaxAttachments" data-max-folders="@FolderAnswering.MaxFolders"
+              data-choose-folders="@(FolderPicker.CanOpenFor(Context) ? "true" : "false")">
+            <div id="folder-bar" class="folder-bar d-none">
+                <span class="folder-bar-label">Answering from</span>
+                <span id="folder-chips" class="folder-chips" aria-label="Folders this chat answers from"></span>
+                <select id="effort-picker" class="form-select form-select-sm effort-picker" aria-label="How hard to search the folders">
+                    <option value="Quick" title="One search with your question. Fastest, and works with every model.">Quick</option>
+                    <option value="Standard" title="The model searches the folders itself, trying other words if needed." selected>Standard</option>
+                    <option value="Thorough" title="More searching, and the model can read whole pages. Slower, and uses more tokens.">Thorough</option>
+                </select>
+            </div>
             <div id="attachment-tray" class="attachment-tray d-none" aria-label="Attached files" aria-live="polite"></div>
             <div class="composer-row">
                 <button id="attach" class="btn btn-outline-secondary" type="button" title="Attach PDF, Word or text files">Attach</button>
                 <input id="file-input" type="file" multiple hidden />
+                <div class="dropup">
+                    <button id="folders-button" class="btn btn-outline-secondary dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+                            title="Choose folders for this chat to answer from">Folders</button>
+                    <div id="folder-menu" class="dropdown-menu folder-menu"></div>
+                </div>
                 <textarea id="prompt" class="form-control" rows="1" placeholder="Message (Enter to send, Shift+Enter for a new line)" aria-label="Message"></textarea>
                 <button id="send" class="btn btn-primary" type="submit">Send</button>
                 <button id="stop" class="btn btn-outline-danger d-none" type="button">Stop</button>
@@ -46,18 +67,52 @@
     </section>
 </div>
 
-<div class="modal fade" id="attachment-modal" tabindex="-1" aria-labelledby="attachment-modal-title" aria-hidden="true">
+<div class="modal fade" id="preview-modal" tabindex="-1" aria-labelledby="preview-title" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title h6 text-truncate" id="attachment-modal-title">Attached file</h2>
+                <h2 class="modal-title h6 text-truncate" id="preview-title"></h2>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p id="attachment-modal-info" class="small text-body-secondary"></p>
-                <pre id="attachment-modal-text" class="attachment-text mb-0"></pre>
+                <p id="preview-info" class="small text-body-secondary"></p>
+                <pre id="preview-text" class="preview-text mb-0"></pre>
+            </div>
+            <div id="preview-footer" class="modal-footer d-none">
+                <button id="preview-reveal" type="button" class="btn btn-sm btn-outline-secondary">Show in folder</button>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="modal fade" id="new-folder-modal" tabindex="-1" aria-labelledby="new-folder-title" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="new-folder-form" class="modal-content" autocomplete="off">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="new-folder-title">Add a folder</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body vstack gap-3">
+                <p class="small text-body-secondary mb-0">
+                    FolderChat reads the PDF, Word and text files in it, on this computer, and this chat answers from them.
+                    Other chats can use it too, from their own Folders menu.
+                </p>
+                <div>
+                    <label class="form-label" for="new-folder-path">Folder path</label>
+                    <input id="new-folder-path" class="form-control" placeholder="@FolderPathHint.Example" required />
+                    <div class="form-text">@FolderPathHint.Tip</div>
+                </div>
+                <div>
+                    <label class="form-label" for="new-folder-name">Name (optional)</label>
+                    <input id="new-folder-name" class="form-control" maxlength="100" />
+                </div>
+                <div id="new-folder-error" class="alert alert-danger d-none mb-0"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button id="new-folder-save" type="submit" class="btn btn-primary">Add folder</button>
+            </div>
+        </form>
     </div>
 </div>
 

@@ -35,6 +35,9 @@ public sealed class ConversationMessage
 
     /// <summary>Files sent with a user message, in <see cref="Attachment.Position"/> order.</summary>
     public List<Attachment> Attachments { get; set; } = [];
+
+    /// <summary>Folder passages an assistant message was given, in <see cref="MessageSource.Number"/> order.</summary>
+    public List<MessageSource> Sources { get; set; } = [];
 }
 
 public enum MessageRole

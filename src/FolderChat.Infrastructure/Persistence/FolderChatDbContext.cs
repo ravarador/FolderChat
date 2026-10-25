@@ -1,4 +1,5 @@
 using FolderChat.Core.Conversations;
+using FolderChat.Core.Knowledge;
 using FolderChat.Core.Providers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -17,6 +18,12 @@ public sealed class FolderChatDbContext(DbContextOptions<FolderChatDbContext> op
 
     public DbSet<Attachment> Attachments => Set<Attachment>();
 
+    public DbSet<KnowledgeFolder> KnowledgeFolders => Set<KnowledgeFolder>();
+
+    public DbSet<KnowledgeFile> KnowledgeFiles => Set<KnowledgeFile>();
+
+    public DbSet<Passage> Passages => Set<Passage>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Every key is a Guid the app creates itself. Telling EF they're never database-generated lets it
@@ -26,6 +33,8 @@ public sealed class FolderChatDbContext(DbContextOptions<FolderChatDbContext> op
         modelBuilder.Entity<Conversation>().Property(c => c.Id).ValueGeneratedNever();
         modelBuilder.Entity<ConversationMessage>().Property(m => m.Id).ValueGeneratedNever();
         modelBuilder.Entity<Attachment>().Property(a => a.Id).ValueGeneratedNever();
+        modelBuilder.Entity<KnowledgeFolder>().Property(f => f.Id).ValueGeneratedNever();
+        modelBuilder.Entity<KnowledgeFile>().Property(f => f.Id).ValueGeneratedNever();
 
         modelBuilder.Entity<Provider>(provider =>
         {
@@ -70,12 +79,51 @@ public sealed class FolderChatDbContext(DbContextOptions<FolderChatDbContext> op
                 .WithOne()
                 .HasForeignKey(a => a.MessageId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Stored as JSON in the message row: they're always read with the message, and never queried.
+            message.OwnsMany(m => m.Sources, sources =>
+            {
+                sources.ToJson();
+                sources.Property(s => s.Path).HasMaxLength(1024);
+            });
         });
 
         modelBuilder.Entity<Attachment>(attachment =>
         {
             attachment.Property(a => a.FileName).HasMaxLength(255);
             attachment.Property(a => a.MediaType).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<KnowledgeFolder>(folder =>
+        {
+            folder.Property(f => f.Name).HasMaxLength(100);
+            folder.Property(f => f.Path).HasMaxLength(1024);
+            folder.Property(f => f.ScanError).HasMaxLength(2000);
+            folder.Property(f => f.SummaryModelId).HasMaxLength(200);
+            folder.HasMany(f => f.Files)
+                .WithOne()
+                .HasForeignKey(f => f.FolderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<KnowledgeFile>(file =>
+        {
+            file.Property(f => f.RelativePath).HasMaxLength(1024);
+            file.Property(f => f.Note).HasMaxLength(500);
+            file.Property(f => f.MediaType).HasMaxLength(100);
+            file.HasIndex(f => new { f.FolderId, f.RelativePath }).IsUnique();
+        });
+
+        // Passages are also in a full-text index, a SQLite FTS5 table that EF doesn't model. The AddKnowledgeFolders
+        // migration creates it, with triggers that keep it in step with this table. A future migration that rebuilds
+        // this table must create those triggers again.
+        modelBuilder.Entity<Passage>(passage =>
+        {
+            passage.HasOne<KnowledgeFile>()
+                .WithMany()
+                .HasForeignKey(p => p.FileId)
+                .OnDelete(DeleteBehavior.Cascade);
+            passage.HasIndex(p => new { p.FileId, p.Ordinal });
         });
     }
 

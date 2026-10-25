@@ -70,6 +70,42 @@ Attached files stay part of the conversation. Every later message sends them to 
 
 **Local models** often have a small context window. A long document may not fit, and the model then sees only part of it. With Ollama, raise the context length in its settings, or with the `OLLAMA_CONTEXT_LENGTH` environment variable, if the model seems to ignore your file.
 
+## Answering from a folder
+
+For more files than you'd attach to one message, add a knowledge folder. FolderChat reads the PDF, Word (.docx) and text files in it, including subfolders, and keeps an index of their text on your computer.
+
+1. In a chat, click **Folders** next to the message box, then **Add a folder…**. Your computer's own folder window opens (File Explorer's on Windows, Finder's on a Mac). Choose the folder and click **Select Folder**, and the chat starts using it. You can also click **Choose folder…** in **Settings**, under **Knowledge folders**.
+2. FolderChat reads the files in the background. In Settings, click **Show files** to see each file, and why any were skipped.
+3. Tick the folders this chat should answer from under **Folders**. They show above the message box, where you can remove one or choose an effort level. Then ask.
+
+Each chat keeps its own folders, up to 10, and a new chat starts with none. Any chat can use a folder you've added, but a chat only answers from the folders ticked in it.
+
+The folder window opens on the computer running FolderChat. Where it can't open, as on a computer without a desktop or for a browser on another device, paste the folder's full path instead, in Settings or in the chat's **Add a folder…** box. On Windows, right-click the folder in File Explorer and choose **Copy as path**. On a Mac, select it in Finder and press Option+Command+C. On Linux, the window needs zenity or kdialog, which most desktops include.
+
+Replies cite the passages they use as [1], [2] and so on, and list the sources below. Click a citation to see the exact passage the model was given, and **Show in folder** to find the file.
+
+### Effort levels
+
+| Level | What happens | Best for |
+|---|---|---|
+| **Quick** | FolderChat searches once with the words of your question and sends the best passages. Fastest, and works with every model. | Looking up a fact, a name or a number |
+| **Standard** | The model searches the folders itself, a few times, trying other words when a search finds nothing. | Most questions |
+| **Thorough** | More searches, and the model can read whole pages and look through the list of files. Slower, and uses more tokens. | Comparing files, or finding every mention of something |
+
+Search matches words, not meaning: a question about "revenue" won't find a passage that only says "sales". Standard and Thorough get around this by letting the model try other words. Search works best for languages that put spaces between words; Chinese and Japanese text isn't split into words yet.
+
+Only the passages a question needs are sent to the model, not whole files. Standard and Thorough need a model that can use tools, which most cloud models can. If a model can't, FolderChat searches once for it instead, as Quick does.
+
+### Keeping up with changes
+
+FolderChat checks every folder for new, changed and deleted files when it starts and every five minutes, and you can click **Check for changes** at any time. Only files that changed are read again. Hidden files and folders, and `node_modules`, `bin` and `obj` folders, are skipped. Files stored only online, such as OneDrive files that aren't downloaded, are skipped too, so FolderChat doesn't download them.
+
+Limits: 20,000 files per folder, 50 MB per file, and about 3 million characters of text per file.
+
+### Summaries (optional)
+
+In a folder's **Edit** dialog, you can have a model write a short summary of each file. Thorough answers use the summaries to pick which files to read. Writing them means the model reads the start of every file, which takes a while for big folders. With a cloud model, every file's start is sent to that provider, so a local model is suggested.
+
 ## Choosing which models appear
 
 Each provider card in Settings lists its models:
@@ -98,6 +134,9 @@ Database changes are applied automatically when the app starts.
 | Port 5080 is already in use | Run with `--urls http://127.0.0.1:5090`, or see [Configuration](configuration.md). |
 | "…has no text FolderChat can read" for a PDF | It's a scan: its pages are pictures of text. Run it through OCR (many scanner apps and PDF editors can), then attach the result. |
 | The model ignores an attached file | The file may not fit in the model's context window. Ask about a shorter file, pick a model with a larger window, or raise Ollama's context length (see [Attaching files](#attaching-files)). |
+| "FolderChat can't find that folder" | Check the path, and that its drive is connected. Paste the full path, such as `C:\Users\you\Documents\Contracts`. |
+| A folder answer misses something you know is there | Search matches words. Ask using the words the document uses, or choose Standard or Thorough so the model can try other words. Check that the file wasn't skipped under **Show files**. |
+| "This model can't search by itself" | The model doesn't support tools, so FolderChat searched once for it. Pick Quick to skip the attempt, or a model that supports tools. |
 | Visual Studio says "One or more projects in the solution were not loaded correctly" | You're on Visual Studio 2022. .NET 10 needs Visual Studio 2026 (version 18) or later, which installs alongside 2022. Rider 2025.3+, VS Code and the `dotnet` command line also work. |
 
 Logs are in the `logs` folder inside your data folder.

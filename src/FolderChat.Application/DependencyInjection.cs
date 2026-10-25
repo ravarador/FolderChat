@@ -1,6 +1,7 @@
 using FolderChat.Application.Attachments;
 using FolderChat.Application.Chat;
 using FolderChat.Application.Conversations;
+using FolderChat.Application.Knowledge;
 using FolderChat.Application.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -16,6 +17,9 @@ public static class DependencyInjection
         services.AddScoped<ProviderService>();
         services.AddScoped<ConversationService>();
         services.AddScoped<AttachmentService>();
+        services.AddScoped<FolderService>();
+        services.AddScoped<FolderAnswering>();
+        services.AddScoped<FileSummarizer>();
         services.AddScoped<ChatService>();
         return services;
     }

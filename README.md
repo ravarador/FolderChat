@@ -2,22 +2,25 @@
 
 Chat with Claude, ChatGPT, DeepSeek, Kimi, GLM, Gemini and local models from one app that runs on your own computer.
 
-> **Status: v0.2 (early preview).** Chat, the model picker, conversation history and file attachments work.
-> Answering from whole folders of your files is next on the [roadmap](#roadmap).
+> **Status: v0.3 (early preview).** Chat, file attachments, and answers from whole folders of your files, with citations, work.
+> Polish such as token and cost display is next on the [roadmap](#roadmap).
 
 ## Why FolderChat
 
 - **One app, many models.** Pick a model per message. Switch from Claude to DeepSeek to a local Llama in the same conversation.
-- **Runs on your machine.** A small ASP.NET Core server listens on `127.0.0.1` and your browser is the window. Conversations and API keys stay in a local SQLite file.
+- **Ask your own files.** Point FolderChat at a folder of PDFs, Word documents and notes, and ask questions. Answers cite the passages they come from.
+- **Runs on your machine.** A small ASP.NET Core server listens on `127.0.0.1` and your browser is the window. Conversations, the folder index and API keys stay in a local SQLite file.
 - **Local models too.** Point it at [Ollama](https://ollama.com) or LM Studio and nothing leaves your computer. The chat shows a badge saying where each message goes.
 - **Open source.** MIT licensed. Contributions welcome.
 
-## Features in v0.2
+## Features in v0.3
 
 - Model picker grouped by provider, loaded from each provider's own model list.
 - Streaming replies with Markdown, syntax-highlighted code and copy buttons. A Stop button keeps whatever arrived so far.
 - Conversation history with search, rename and delete.
 - Attach PDF, Word (.docx) and text files to a message: click **Attach**, drop them on the chat, or paste them. FolderChat reads the text on your computer and sends it with your message, so attachments work with every model, local ones included. Click a file to see exactly what the model receives.
+- Knowledge folders: choose a folder in your computer's own folder window and FolderChat indexes its PDF, Word and text files in the background, keeping up with changes. Each chat answers from the folders you tick under **Folders**, one or several; replies cite passages like [1], and clicking one shows the exact text the model was given.
+- Three effort levels for folder answers: **Quick** searches once for the model, **Standard** lets the model search the folders itself, and **Thorough** also lets it read whole pages and look through the files. See [Getting started](docs/getting-started.md#answering-from-a-folder).
 - Providers:
   - Anthropic (Claude) through the official Anthropic SDK
   - OpenAI through the official OpenAI SDK
@@ -65,7 +68,7 @@ More detail: [Getting started](docs/getting-started.md) · [Providers](docs/prov
 
 The folder holds:
 
-- `folderchat.db`: conversations, the text of attached files, providers and encrypted API keys
+- `folderchat.db`: conversations, the text of attached files, the index of your knowledge folders, providers and encrypted API keys. The `-wal` and `-shm` files next to it belong to it.
 - `keys/`: the encryption key ring (DPAPI-protected on Windows)
 - `logs/`: daily log files
 
@@ -81,7 +84,7 @@ FolderChat is a local app that holds your API keys, so it locks itself down by d
 - API keys are encrypted with ASP.NET Core Data Protection and never returned by the API.
 - Model replies are rendered as sanitized Markdown (DOMPurify), so a reply can't run script in the page.
 
-When you chat with a cloud provider, your messages, and the text of any files you attach, go to that provider under its terms. See [SECURITY.md](SECURITY.md) to report a vulnerability.
+When you chat with a cloud provider, your messages, the text of any files you attach, and the folder passages each question needs go to that provider under its terms. FolderChat reads the files in knowledge folders on your computer, and never changes them. See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## How it works
 
@@ -94,8 +97,8 @@ Browser (Razor + vanilla JS)  ──SSE──  ASP.NET Core 10 (controllers)
            Anthropic SDK    OpenAI SDK      OpenAI SDK + base URL    OllamaSharp
               Claude          GPT          DeepSeek, Kimi, GLM, …    local models
 
-              EF Core + SQLite (conversations, attachment text, providers)
-             PdfPig + Open XML SDK (read attached PDF and Word files locally)
+     EF Core + SQLite (conversations, attachment text, providers, folder index with FTS5)
+  PdfPig + Open XML SDK (read PDF and Word files locally)   Background service (scans folders)
 ```
 
 Every provider sits behind the same `IChatClient` interface, so adding one is a small, self-contained change. See [Architecture](docs/architecture.md).
@@ -103,7 +106,7 @@ Every provider sits behind the same `IChatClient` interface, so adding one is a 
 ## Roadmap
 
 - **v0.2 Attachments** (done): attach PDF, Word and text files to a message.
-- **v0.3 Knowledge folders:** index a folder in the background and get answers with citations.
+- **v0.3 Knowledge folders** (done): index a folder in the background and get answers with citations.
 - **v0.4 Polish:** token and cost display, a local-only mode, PWA install.
 - **v1.0 Releases:** single-file builds for Windows, macOS and Linux, plus a Docker image.
 

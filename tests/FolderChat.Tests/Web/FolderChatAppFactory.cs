@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using FolderChat.Application.Abstractions;
 using FolderChat.Tests.Fakes;
+using FolderChat.Web.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -20,6 +21,8 @@ public sealed partial class FolderChatAppFactory : WebApplicationFactory<Program
 
     internal FakeModelCatalog ModelCatalog { get; } = new();
 
+    internal FakeFolderPicker FolderPicker { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -30,6 +33,8 @@ public sealed partial class FolderChatAppFactory : WebApplicationFactory<Program
             services.AddSingleton<IChatClientFactory>(ChatClients);
             services.RemoveAll<IModelCatalog>();
             services.AddSingleton<IModelCatalog>(ModelCatalog);
+            services.RemoveAll<IFolderPicker>();
+            services.AddSingleton<IFolderPicker>(FolderPicker);
         });
     }
 

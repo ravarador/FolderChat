@@ -41,12 +41,17 @@ builder.Services.AddAntiforgery(options =>
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<AppExceptionHandler>();
+builder.Services.AddSingleton<IFolderPicker, SystemFolderPicker>();
 
 var app = builder.Build();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
-    await scope.ServiceProvider.GetRequiredService<FolderChatDbContext>().Database.MigrateAsync();
+    var database = scope.ServiceProvider.GetRequiredService<FolderChatDbContext>().Database;
+    await database.MigrateAsync();
+
+    // Write-ahead logging lets chats search while a folder scan writes. The setting is stored in the file.
+    await database.ExecuteSqlRawAsync("PRAGMA journal_mode = WAL;");
 }
 
 // Outside the exception handler, so each request is logged with the status the browser actually got.

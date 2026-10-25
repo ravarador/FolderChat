@@ -56,6 +56,8 @@ See [docs/architecture.md](docs/architecture.md). In short:
 
 3. Commit the generated files. The app applies migrations on startup.
 
+The full-text index over passages (`PassageSearch`) and the triggers that keep it in step with the `Passages` table are created with SQL in the `AddKnowledgeFolders` migration, because EF Core doesn't model them. If a migration rebuilds the `Passages` table, SQLite drops those triggers, so create them again in the same migration.
+
 ## Adding a provider kind
 
 Most providers don't need a new kind: if they speak OpenAI's chat-completions format, add a preset instead.

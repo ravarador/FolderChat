@@ -1,6 +1,8 @@
 using FolderChat.Application.Chat;
+using FolderChat.Application.Knowledge;
 using FolderChat.Core.Conversations;
 using FolderChat.Core.Providers;
+using FolderChat.Infrastructure.Knowledge;
 using FolderChat.Infrastructure.Persistence;
 using FolderChat.Tests.Fakes;
 using Microsoft.EntityFrameworkCore;
@@ -306,6 +308,7 @@ public sealed class ChatServiceTests : IAsyncLifetime
         new EfProviderStore(db),
         new EfConversationStore(db),
         new EfAttachmentStore(db),
+        new FolderAnswering(new EfKnowledgeStore(db), new KnowledgeIndex(db), new FakeScanQueue()),
         clients,
         new MessageErrorDescriber(),
         clock,
