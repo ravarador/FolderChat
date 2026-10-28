@@ -17,6 +17,40 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
 
+            modelBuilder.Entity("FolderChat.Core.Api.ApiKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.ToTable("ApiKeys");
+                });
+
             modelBuilder.Entity("FolderChat.Core.Conversations.Attachment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -74,6 +108,10 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ExternalUser")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.PrimitiveCollection<string>("FolderIds")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -84,6 +122,13 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("ProviderId")
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("App");
 
                     b.Property<string>("Title")
                         .IsRequired()

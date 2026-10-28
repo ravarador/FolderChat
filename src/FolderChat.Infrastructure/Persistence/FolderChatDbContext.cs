@@ -1,3 +1,4 @@
+using FolderChat.Core.Api;
 using FolderChat.Core.Conversations;
 using FolderChat.Core.Knowledge;
 using FolderChat.Core.Providers;
@@ -24,6 +25,8 @@ public sealed class FolderChatDbContext(DbContextOptions<FolderChatDbContext> op
 
     public DbSet<Passage> Passages => Set<Passage>();
 
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Every key is a Guid the app creates itself. Telling EF they're never database-generated lets it
@@ -35,6 +38,7 @@ public sealed class FolderChatDbContext(DbContextOptions<FolderChatDbContext> op
         modelBuilder.Entity<Attachment>().Property(a => a.Id).ValueGeneratedNever();
         modelBuilder.Entity<KnowledgeFolder>().Property(f => f.Id).ValueGeneratedNever();
         modelBuilder.Entity<KnowledgeFile>().Property(f => f.Id).ValueGeneratedNever();
+        modelBuilder.Entity<ApiKey>().Property(k => k.Id).ValueGeneratedNever();
 
         modelBuilder.Entity<Provider>(provider =>
         {
@@ -57,6 +61,10 @@ public sealed class FolderChatDbContext(DbContextOptions<FolderChatDbContext> op
         {
             conversation.Property(c => c.Title).HasMaxLength(200);
             conversation.Property(c => c.ModelId).HasMaxLength(200);
+            conversation.Property(c => c.ExternalUser).HasMaxLength(200);
+
+            // Existing conversations were all started in the app.
+            conversation.Property(c => c.Source).HasDefaultValue(ConversationSource.App).HasSentinel(ConversationSource.App);
             conversation.HasIndex(c => c.UpdatedAt);
             conversation.HasMany(c => c.Messages)
                 .WithOne()
@@ -112,6 +120,14 @@ public sealed class FolderChatDbContext(DbContextOptions<FolderChatDbContext> op
             file.Property(f => f.Note).HasMaxLength(500);
             file.Property(f => f.MediaType).HasMaxLength(100);
             file.HasIndex(f => new { f.FolderId, f.RelativePath }).IsUnique();
+        });
+
+        modelBuilder.Entity<ApiKey>(key =>
+        {
+            key.Property(k => k.Name).HasMaxLength(100);
+            key.Property(k => k.Prefix).HasMaxLength(20);
+            key.Property(k => k.Hash).HasMaxLength(64);
+            key.HasIndex(k => k.Hash).IsUnique();
         });
 
         // Passages are also in a full-text index, a SQLite FTS5 table that EF doesn't model. The AddKnowledgeFolders

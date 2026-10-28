@@ -379,7 +379,16 @@
                 iconButton("Rename", "✎", () => renameConversation(conversation)),
                 iconButton("Delete", "✕", () => deleteConversation(conversation)));
 
-            item.append(title, actions);
+            item.append(title);
+            if (conversation.source === "Api") {
+                // Started by another app through the REST API.
+                const badge = document.createElement("span");
+                badge.className = "badge rounded-pill text-bg-secondary api-badge";
+                badge.textContent = "API";
+                item.title = `${conversation.title} (started by another app through the API)`;
+                item.append(badge);
+            }
+            item.append(actions);
             item.addEventListener("click", () => openConversation(conversation.id));
             els.list.append(item);
         }

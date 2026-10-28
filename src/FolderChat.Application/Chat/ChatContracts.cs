@@ -1,4 +1,5 @@
 using FolderChat.Application.Conversations;
+using FolderChat.Core.Conversations;
 using FolderChat.Core.Knowledge;
 
 namespace FolderChat.Application.Chat;
@@ -7,6 +8,9 @@ namespace FolderChat.Application.Chat;
 /// <param name="AttachmentIds">Uploaded files to send with the message, in the order given. The message text can be empty when there are some.</param>
 /// <param name="FolderIds">The knowledge folders this chat answers from. Saved with the conversation.</param>
 /// <param name="Effort">How hard to search the folders. Ignored without any.</param>
+/// <param name="Instructions">Extra instructions for the model, sent as a system message with this message only.</param>
+/// <param name="Source">Who started the conversation. Only used when a new one is started.</param>
+/// <param name="ExternalUser">The calling app's user ID, saved with a new API conversation.</param>
 public sealed record ChatRequest(
     Guid? ConversationId,
     Guid ProviderId,
@@ -14,7 +18,10 @@ public sealed record ChatRequest(
     string Message,
     IReadOnlyList<Guid>? AttachmentIds = null,
     IReadOnlyList<Guid>? FolderIds = null,
-    SearchEffort Effort = SearchEffort.Standard);
+    SearchEffort Effort = SearchEffort.Standard,
+    string? Instructions = null,
+    ConversationSource Source = ConversationSource.App,
+    string? ExternalUser = null);
 
 /// <summary>One step of a streamed reply. The stream ends with either <see cref="ChatCompleted"/> or <see cref="ChatFailed"/>.</summary>
 public abstract record ChatStreamEvent;

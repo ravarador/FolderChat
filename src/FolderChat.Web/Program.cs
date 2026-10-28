@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using FolderChat.Application;
+using FolderChat.Application.Api;
 using FolderChat.Infrastructure;
 using FolderChat.Infrastructure.Persistence;
 using FolderChat.Web.Infrastructure;
@@ -13,6 +14,29 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddFolderChatApplication();
 builder.Services.AddFolderChatInfrastructure(builder.Configuration);
+
+// The REST API for other apps. Its extra addresses, if any, are added to the ones FolderChat already listens on.
+var apiOptions = builder.Configuration.GetSection(ApiOptions.SectionName).Get<ApiOptions>() ?? new ApiOptions();
+builder.Services.AddOptions<ApiOptions>().Bind(builder.Configuration.GetSection(ApiOptions.SectionName));
+builder.Services.AddSingleton<ApiDefaults>(sp => sp.GetRequiredService<IOptions<ApiOptions>>().Value.Defaults);
+var apiUrls = ApiOptions.SplitUrls(apiOptions.Urls);
+var apiPorts = apiOptions.GetPorts();
+if (apiUrls.Length > 0)
+{
+    var appUrls = ApiOptions.SplitUrls(builder.Configuration[WebHostDefaults.ServerUrlsKey]);
+    if (appUrls.Length == 0)
+    {
+        throw new InvalidOperationException("FolderChat:Api:Urls needs the app's own address in Urls too, such as http://127.0.0.1:5080.");
+    }
+
+    builder.WebHost.UseUrls([.. appUrls, .. apiUrls]);
+}
+
+builder.Services.AddOpenApi("v1", options =>
+{
+    options.ShouldInclude = description => description.RelativePath?.StartsWith("api/v1/", StringComparison.Ordinal) == true;
+    options.AddDocumentTransformer<ApiDocument>();
+});
 
 builder.Services.AddSerilog((services, logger) => logger
     .ReadFrom.Configuration(builder.Configuration)
@@ -57,10 +81,16 @@ await using (var scope = app.Services.CreateAsyncScope())
 // Outside the exception handler, so each request is logged with the status the browser actually got.
 app.UseSerilogRequestLogging(options => options.GetLevel = RequestLogLevel);
 app.UseExceptionHandler();
+if (apiPorts.Count > 0)
+{
+    app.UseMiddleware<ApiOnlyAddresses>(apiPorts);
+}
+
 app.UseRouting();
 
 app.MapStaticAssets();
 app.MapControllers();
+app.MapOpenApi("/api/{documentName}/openapi.json");
 app.MapControllerRoute(
         name: "default",
         pattern: "{controller=Home}/{action=Index}/{id?}")

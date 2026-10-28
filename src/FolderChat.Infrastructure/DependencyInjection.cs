@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<IAttachmentStore, EfAttachmentStore>();
         services.AddScoped<IKnowledgeStore, EfKnowledgeStore>();
         services.AddScoped<IKnowledgeIndex, KnowledgeIndex>();
+        services.AddScoped<IApiKeyStore, EfApiKeyStore>();
 
         // One background service scans folders; the app asks it for scans and progress through IFolderScanQueue.
         services.AddScoped<FolderScanner>();
