@@ -128,6 +128,20 @@ public sealed class ApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Usage_reports_this_months_tokens_by_model()
+    {
+        app.ChatClients.Build = (_, _) => new FakeChatClient { Usage = new UsageDetails { InputTokenCount = 8, OutputTokenCount = 2 } };
+        var client = await app.CreateSignedInClientAsync();
+        var providerId = await CreateProviderWithModelsAsync(client);
+        (await client.PostAsJsonAsync("/api/chat/stream", new { providerId, modelId = "model-a", message = "Hello" })).EnsureSuccessStatusCode();
+
+        var usage = await (await client.GetAsync("/api/usage")).ReadJsonAsync();
+
+        var row = Assert.Single(usage.GetProperty("models").EnumerateArray());
+        Assert.Equal(("model-a", 1, 8L, 2L), (row.GetProperty("modelId").GetString(), row.GetProperty("replies").GetInt32(), row.GetProperty("inputTokens").GetInt64(), row.GetProperty("outputTokens").GetInt64()));
+    }
+
+    [Fact]
     public async Task Conversations_can_be_renamed_and_deleted()
     {
         var client = await app.CreateSignedInClientAsync();

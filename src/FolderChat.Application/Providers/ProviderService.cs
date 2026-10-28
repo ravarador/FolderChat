@@ -146,7 +146,7 @@ public sealed class ProviderService(
                 p.Models
                     .Where(m => m.IsEnabled)
                     .OrderBy(m => m.DisplayName ?? m.ModelId, StringComparer.OrdinalIgnoreCase)
-                    .Select(m => new PickerModelDto(m.ModelId, m.DisplayName ?? m.ModelId))
+                    .Select(m => new PickerModelDto(m.ModelId, m.DisplayName ?? m.ModelId, m.ContextWindow))
                     .ToList()))
             .Where(p => p.Models.Count > 0)
             .ToList();

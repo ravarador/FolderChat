@@ -12,6 +12,7 @@
         picker: document.getElementById("model-picker"),
         privacy: document.getElementById("privacy-badge"),
         title: document.getElementById("chat-title"),
+        usage: document.getElementById("chat-usage"),
         messages: document.getElementById("messages"),
         empty: document.getElementById("empty-state"),
         emptyText: document.getElementById("empty-state-text"),
@@ -62,6 +63,7 @@
         choosingFolder: false, // the computer's folder window is open
         streaming: null, // the AbortController of the reply being streamed
         attachments: [], // files in the composer: { name, status: "uploading" | "ready" | "failed", attachment, error }
+        chatTokens: { input: 0, output: 0, replies: 0 }, // the open chat's replies, added up
     };
 
     const previewModal = bootstrap.Modal.getOrCreateInstance(els.previewModal);
@@ -413,7 +415,12 @@
             state.currentId = conversation.id;
             els.title.textContent = conversation.title;
             els.messages.replaceChildren();
-            for (const message of conversation.messages) appendMessage(message);
+            resetChatTokens();
+            for (const message of conversation.messages) {
+                appendMessage(message);
+                if (message.role === "Assistant") addChatTokens(message);
+            }
+            renderChatTokens();
 
             if (conversation.providerId && conversation.modelId) {
                 selectModel(`${conversation.providerId}|${conversation.modelId}`);
@@ -436,6 +443,8 @@
         setChatFolders([], "Standard"); // each chat chooses its own folders
         els.title.textContent = "";
         els.messages.replaceChildren();
+        resetChatTokens();
+        renderChatTokens();
         history.replaceState(null, "", location.pathname);
         renderConversationList();
         updateEmptyState();
@@ -491,7 +500,12 @@
         } else {
             const meta = document.createElement("div");
             meta.className = "message-meta";
-            meta.textContent = describeModel(message);
+            const model = document.createElement("span");
+            model.textContent = describeModel(message);
+            const tokens = document.createElement("span");
+            tokens.className = "message-tokens";
+            meta.append(model, tokens);
+            showTokens(tokens, message);
 
             const content = document.createElement("div");
             content.className = "content markdown";
@@ -511,9 +525,70 @@
     }
 
     function describeModel(message) {
-        let text = [message.providerName, message.modelId].filter(Boolean).join(" · ");
-        if (message.outputTokens) text += ` · ${message.outputTokens.toLocaleString()} tokens`;
-        return text;
+        return [message.providerName, message.modelId].filter(Boolean).join(" · ");
+    }
+
+    // ---------- Tokens ----------
+
+    /** Shows a reply's token counts, as the provider reported them, with the details on hover. */
+    function showTokens(element, usage) {
+        if (usage.inputTokens == null && usage.outputTokens == null) {
+            element.textContent = "";
+            element.removeAttribute("title");
+            return;
+        }
+
+        element.textContent = ` · ${formatCount(usage.inputTokens)} in · ${formatCount(usage.outputTokens)} out`;
+        const details = [
+            `Read: ${formatCount(usage.inputTokens)} tokens`,
+            `Wrote: ${formatCount(usage.outputTokens)} tokens`,
+        ];
+        if (usage.cachedInputTokens) details.push(`Read from the provider's cache: ${usage.cachedInputTokens.toLocaleString()}`);
+        if (usage.reasoningTokens) details.push(`Spent thinking: ${usage.reasoningTokens.toLocaleString()}`);
+        const contextWindow = contextWindowFor(usage.providerName, usage.modelId);
+        if (usage.contextTokens && contextWindow) {
+            const percent = Math.min(100, Math.round(usage.contextTokens / contextWindow * 100));
+            details.push(`Context used: ${usage.contextTokens.toLocaleString()} of ${contextWindow.toLocaleString()} (${percent}%)`);
+            if (percent >= 80) {
+                element.textContent += ` · ${percent}% of context`;
+                details.push("The conversation is close to what this model can take. Starting a new chat, or attaching fewer files, leaves it more room.");
+            }
+        }
+        element.title = details.join("\n");
+    }
+
+    function formatCount(value) {
+        return value == null ? "—" : value.toLocaleString();
+    }
+
+    /** The context size of a model in the picker, when its provider reports one. */
+    function contextWindowFor(providerName, modelId) {
+        for (const provider of state.providers) {
+            if (provider.name !== providerName) continue;
+            const model = provider.models.find(m => m.modelId === modelId);
+            if (model?.contextWindow) return model.contextWindow;
+        }
+        return null;
+    }
+
+    function resetChatTokens() {
+        state.chatTokens = { input: 0, output: 0, replies: 0 };
+    }
+
+    function addChatTokens(usage) {
+        if (usage.inputTokens == null && usage.outputTokens == null) return;
+        state.chatTokens.input += usage.inputTokens ?? 0;
+        state.chatTokens.output += usage.outputTokens ?? 0;
+        state.chatTokens.replies += 1;
+    }
+
+    /** The open chat's running total, in the header. */
+    function renderChatTokens() {
+        const { input, output, replies } = state.chatTokens;
+        els.usage.classList.toggle("d-none", replies === 0);
+        if (replies === 0) return;
+        els.usage.textContent = `${compactNumber.format(input)} in · ${compactNumber.format(output)} out`;
+        els.usage.title = `This chat so far: ${input.toLocaleString()} tokens read and ${output.toLocaleString()} written, over ${replies.toLocaleString()} ${replies === 1 ? "reply" : "replies"}.`;
     }
 
     function addNote(wrapper, text) {
@@ -918,9 +993,10 @@
                     markdown.render(content, replyText);
                     markdown.enhance(content);
                     renderSources(reply, replySources, replyText);
-                    if (event.outputTokens) {
-                        reply.querySelector(".message-meta").textContent += ` · ${event.outputTokens.toLocaleString()} tokens`;
-                    }
+                    const usage = { ...event, providerName: provider?.name, modelId: selection.modelId };
+                    showTokens(reply.querySelector(".message-tokens"), usage);
+                    addChatTokens(usage);
+                    renderChatTokens();
                     if (event.finishReason === "length") addNote(reply, "The reply hit the model's length limit.");
                 },
                 error: event => {

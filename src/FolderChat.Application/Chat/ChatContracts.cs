@@ -33,7 +33,17 @@ public sealed record ChatSources(IReadOnlyList<SourceDto> Sources) : ChatStreamE
 
 /// <summary>The reply is finished and saved.</summary>
 /// <param name="FinishReason">Why the model stopped, such as <c>stop</c> or <c>length</c>, when the provider says.</param>
-public sealed record ChatCompleted(Guid MessageId, long? InputTokens, long? OutputTokens, string? FinishReason) : ChatStreamEvent;
+/// <param name="CachedInputTokens">The part of the input the provider read from its prompt cache, when it says.</param>
+/// <param name="ReasoningTokens">The part of the output the model spent thinking, when the provider says.</param>
+/// <param name="ContextTokens">How much of the model's context the last round used.</param>
+public sealed record ChatCompleted(
+    Guid MessageId,
+    long? InputTokens,
+    long? OutputTokens,
+    string? FinishReason,
+    long? CachedInputTokens = null,
+    long? ReasoningTokens = null,
+    long? ContextTokens = null) : ChatStreamEvent;
 
 /// <summary>The reply failed. <paramref name="MessageId"/> is set when the failure was saved to the conversation.</summary>
 public sealed record ChatFailed(string Error, Guid? MessageId) : ChatStreamEvent;

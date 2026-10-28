@@ -243,5 +243,7 @@ public sealed class FolderService(
         folder.SummariesEnabled,
         folder.SummaryProviderId,
         folder.SummaryModelId,
+        folder.SummaryInputTokens,
+        folder.SummaryOutputTokens,
         scans.GetProgress(folder.Id));
 }

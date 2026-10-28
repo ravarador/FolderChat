@@ -75,6 +75,23 @@ public sealed class ConversationService(IConversationStore store, TimeProvider c
         await store.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// Tokens used by replies this calendar month, in this computer's time zone, by model. Replies in deleted
+    /// conversations are gone, so they aren't counted.
+    /// </summary>
+    public async Task<UsageReportDto> GetUsageAsync(CancellationToken ct = default)
+    {
+        var now = clock.GetLocalNow();
+        var since = TimeZoneInfo.ConvertTimeToUtc(new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Unspecified), clock.LocalTimeZone);
+        var rows = await store.ListUsageAsync(since, ct);
+        return new UsageReportDto(
+            since,
+            rows.OrderByDescending(r => r.InputTokens + r.OutputTokens)
+                .ThenBy(r => r.ProviderName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => r.ModelId, StringComparer.OrdinalIgnoreCase)
+                .ToList());
+    }
+
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
         var conversation = await FindAsync(id, includeMessages: false, ct);
@@ -83,7 +100,8 @@ public sealed class ConversationService(IConversationStore store, TimeProvider c
     }
 
     internal static MessageDto ToDto(ConversationMessage m) => new(
-        m.Id, m.Role, m.Content, m.Status, m.Error, m.ProviderName, m.ModelId, m.InputTokens, m.OutputTokens, m.CreatedAt,
+        m.Id, m.Role, m.Content, m.Status, m.Error, m.ProviderName, m.ModelId,
+        m.InputTokens, m.OutputTokens, m.CachedInputTokens, m.ReasoningTokens, m.ContextTokens, m.CreatedAt,
         m.Attachments.OrderBy(a => a.Position).Select(AttachmentService.ToSummary).ToList(),
         m.Sources.OrderBy(s => s.Number).Select(ToSourceDto).ToList());
 

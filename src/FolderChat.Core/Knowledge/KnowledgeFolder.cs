@@ -27,5 +27,11 @@ public sealed class KnowledgeFolder
     /// <summary>The model that writes summaries.</summary>
     public string? SummaryModelId { get; set; }
 
+    /// <summary>Tokens the summary model has read for this folder, over all its summaries so far.</summary>
+    public long SummaryInputTokens { get; set; }
+
+    /// <summary>Tokens the summary model has written for this folder.</summary>
+    public long SummaryOutputTokens { get; set; }
+
     public List<KnowledgeFile> Files { get; set; } = [];
 }

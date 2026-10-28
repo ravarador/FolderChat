@@ -277,6 +277,29 @@ public sealed class FolderChatTests : IAsyncLifetime
         new(id, name, arguments.ToDictionary(a => a.Name, a => (object?)a.Value));
 
     /// <summary>A knowledge folder on disk, saved and, when given files, scanned.</summary>
+    [Fact]
+    public async Task Token_counts_add_up_over_rounds_and_the_last_round_shows_how_full_the_context_is()
+    {
+        await IndexAsync(folder, ("costs.md", "Hosting costs fell 8% after the move."));
+        Reply(
+            [
+                Call("call-1", "search_folder", ("query", "hosting costs")),
+                new UsageContent(new UsageDetails { InputTokenCount = 100, OutputTokenCount = 10, CachedInputTokenCount = 40 }),
+            ],
+            [
+                "Hosting costs fell 8% [1].",
+                new UsageContent(new UsageDetails { InputTokenCount = 150, OutputTokenCount = 20, ReasoningTokenCount = 5 }),
+            ]);
+
+        var events = await CollectAsync(Ask("What happened to hosting costs?", SearchEffort.Standard));
+
+        var completed = Assert.IsType<ChatCompleted>(events[^1]);
+        Assert.Equal((250L, 30L, 40L, 5L, 170L), (completed.InputTokens, completed.OutputTokens, completed.CachedInputTokens, completed.ReasoningTokens, completed.ContextTokens));
+        await using var check = database.NewContext();
+        var saved = await check.Messages.SingleAsync(m => m.Role == MessageRole.Assistant);
+        Assert.Equal((250L, 30L, 40L, 5L, 170L), (saved.InputTokens, saved.OutputTokens, saved.CachedInputTokens, saved.ReasoningTokens, saved.ContextTokens));
+    }
+
     private async Task<KnowledgeFolder> AddFolderAsync(string name, params (string Path, string Text)[] contents)
     {
         var files = new TempFolder();

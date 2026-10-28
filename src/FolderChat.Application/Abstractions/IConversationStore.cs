@@ -1,3 +1,4 @@
+using FolderChat.Application.Conversations;
 using FolderChat.Core.Conversations;
 
 namespace FolderChat.Application.Abstractions;
@@ -10,6 +11,9 @@ public interface IConversationStore
 
     /// <summary>Finds a conversation. With <paramref name="includeMessages"/>, its messages come back oldest first.</summary>
     Task<Conversation?> FindAsync(Guid id, bool includeMessages, CancellationToken ct = default);
+
+    /// <summary>Token totals of assistant replies created at or after <paramref name="since"/> (UTC), by provider name and model.</summary>
+    Task<List<UsageRowDto>> ListUsageAsync(DateTime since, CancellationToken ct = default);
 
     void Add(Conversation conversation);
 

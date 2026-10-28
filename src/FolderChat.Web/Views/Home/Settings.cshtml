@@ -49,6 +49,34 @@
         <div id="folder-list" class="vstack gap-3"></div>
         <p id="no-folders" class="text-body-secondary d-none">No folders yet. Add one here, or from Folders in any chat.</p>
     </section>
+
+    <section class="mt-5" aria-labelledby="usage-heading">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <h2 class="h4 mb-0" id="usage-heading">Usage this month</h2>
+            <button id="usage-refresh" class="btn btn-outline-secondary btn-sm ms-auto" type="button">Refresh</button>
+        </div>
+        <p class="small text-body-secondary">
+            Tokens your chats used since <span id="usage-since">the start of the month</span>, as each provider reported them.
+            Your providers bill by tokens, so their own dashboards show what you'll pay. Deleting a chat removes its replies from these totals.
+        </p>
+        <div id="usage-table" class="table-responsive d-none">
+            <table class="table table-sm align-middle usage-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Model</th>
+                        <th scope="col" class="text-end">Replies</th>
+                        <th scope="col" class="text-end">Read (in)</th>
+                        <th scope="col" class="text-end">Written (out)</th>
+                        <th scope="col" class="text-end">From cache</th>
+                        <th scope="col" class="text-end">Thinking</th>
+                    </tr>
+                </thead>
+                <tbody id="usage-rows"></tbody>
+                <tfoot id="usage-total"></tfoot>
+            </table>
+        </div>
+        <p id="no-usage" class="text-body-secondary d-none">No replies this month yet.</p>
+    </section>
 </div>
 
 <div class="modal fade" id="folder-modal" tabindex="-1" aria-labelledby="folder-modal-title" aria-hidden="true">
@@ -141,4 +169,5 @@
 @section Scripts {
     <script src="~/js/settings.js" asp-append-version="true"></script>
     <script src="~/js/folders.js" asp-append-version="true"></script>
+    <script src="~/js/usage.js" asp-append-version="true"></script>
 }

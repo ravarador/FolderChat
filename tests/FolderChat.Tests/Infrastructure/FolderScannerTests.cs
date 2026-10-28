@@ -8,6 +8,7 @@ using FolderChat.Infrastructure.Knowledge;
 using FolderChat.Infrastructure.Persistence;
 using FolderChat.Tests.Fakes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FolderChat.Tests.Infrastructure;
@@ -142,7 +143,11 @@ public sealed class FolderScannerTests : IAsyncLifetime
     [Fact]
     public async Task Summaries_are_written_when_switched_on()
     {
-        var recorder = new FakeChatClient { Chunks = ["A short ", "summary."] };
+        var recorder = new FakeChatClient
+        {
+            Chunks = ["A short ", "summary."],
+            Usage = new UsageDetails { InputTokenCount = 30, OutputTokenCount = 6 },
+        };
         chatClients.Build = (_, _) => recorder;
         await UseSummariesAsync();
         files.Write("a.txt", "alpha");
@@ -153,7 +158,9 @@ public sealed class FolderScannerTests : IAsyncLifetime
         Assert.All(await ListFilesAsync(), f => Assert.Equal("A short summary.", f.Summary));
         Assert.Contains("<document name=\"a.txt\">\nalpha", recorder.Requests[0].Messages[^1].Text);
         Assert.Contains(new ScanProgress(ScanPhase.Summarizing, 1, 2), reports);
-        Assert.Null((await db.KnowledgeFolders.AsNoTracking().SingleAsync()).ScanError);
+        var scanned = await db.KnowledgeFolders.AsNoTracking().SingleAsync();
+        Assert.Null(scanned.ScanError);
+        Assert.Equal((60, 12), (scanned.SummaryInputTokens, scanned.SummaryOutputTokens));
     }
 
     [Fact]
