@@ -150,6 +150,7 @@ Database changes are applied automatically when the app starts. An installed app
 | "The API key was rejected (401)" | Edit the provider and paste the key again. Check it hasn't been revoked. |
 | "Model requires more system memory…" | The local model is too big for your free RAM or VRAM. Pull a smaller one. |
 | "Not found (404)" | Check the base URL and model ID. OpenAI-compatible base URLs usually end in `/v1`, or `/v4` for GLM. |
+| HTTP Error 500.30 under IIS | See [When it doesn't start](deploy-iis.md#when-it-doesnt-start). |
 | Port 5080 is already in use | Run with `--urls http://127.0.0.1:5090`, or see [Configuration](configuration.md). |
 | "…has no text FolderChat can read" for a PDF | It's a scan: its pages are pictures of text. Run it through OCR (many scanner apps and PDF editors can), then attach the result. |
 | The model ignores an attached file | The file may not fit in the model's context window. Ask about a shorter file, pick a model with a larger window, or raise Ollama's context length (see [Attaching files](#attaching-files)). |

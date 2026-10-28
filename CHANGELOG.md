@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+
+- [Running FolderChat under IIS](docs/deploy-iis.md): publishing, the app pool settings it needs, and how to find out why it shows HTTP Error 500.30.
+
 ## [0.5.0] - 2026-10-28
 
 ### Added

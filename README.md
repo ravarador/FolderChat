@@ -60,7 +60,7 @@ Then:
 
 **No API key?** Install [Ollama](https://ollama.com), run `ollama pull qwen3:4b` (or any model that fits your machine), then add the **Ollama (local)** preset.
 
-More detail: [Getting started](docs/getting-started.md) · [Providers](docs/providers.md) · [REST API](docs/api.md) · [Configuration](docs/configuration.md)
+More detail: [Getting started](docs/getting-started.md) · [Providers](docs/providers.md) · [REST API](docs/api.md) · [Configuration](docs/configuration.md) · [Running under IIS](docs/deploy-iis.md)
 
 ## Where your data lives
 
