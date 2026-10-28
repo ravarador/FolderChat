@@ -23,10 +23,17 @@ public sealed partial class FolderChatAppFactory : WebApplicationFactory<Program
 
     internal FakeFolderPicker FolderPicker { get; } = new();
 
+    /// <summary>Configuration for this app, such as <c>FolderChat:Api:Defaults:Model</c>. Set before the first request.</summary>
+    internal Dictionary<string, string> Settings { get; } = [];
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("FolderChat:DataDirectory", dataDirectory);
+        foreach (var (key, value) in Settings)
+        {
+            builder.UseSetting(key, value);
+        }
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IChatClientFactory>();
@@ -45,6 +52,16 @@ public sealed partial class FolderChatAppFactory : WebApplicationFactory<Program
         var html = await client.GetStringAsync("/");
         var token = CsrfMeta().Match(html).Groups["token"].Value;
         client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", token);
+        return client;
+    }
+
+    /// <summary>Creates an API key in Settings and returns a client that sends it, and nothing else: no cookies, no anti-forgery token.</summary>
+    public async Task<HttpClient> CreateApiClientAsync(string name = "Test app")
+    {
+        var settings = await CreateSignedInClientAsync();
+        var created = await (await settings.PostAsJsonAsync("/api/api-keys", new { name })).ReadJsonAsync();
+        var client = CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        client.DefaultRequestHeaders.Authorization = new("Bearer", created.GetProperty("secret").GetString());
         return client;
     }
 

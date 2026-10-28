@@ -4,6 +4,19 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-28
+
+### Added
+
+- A REST API at `/api/v1`, so your own apps can ask FolderChat questions from their server. For example, an admin app can answer from a folder of manuals, with citations. See [the API guide](docs/api.md).
+- API keys in **Settings > API keys**. A key is shown once, only its fingerprint is stored, and revoking it stops it straight away. With no keys, the API is closed.
+- `POST /api/v1/chat` returns the whole reply as JSON, or streams it as Server-Sent Events with `"stream": true`. Models and folders can be named, not only given by ID, and replies include each cited passage's folder, file, page and text.
+- Optional defaults for API requests in `appsettings.json` (`FolderChat:Api:Defaults`): model, folders, effort and instructions, so a request can be just a message.
+- `GET /api/v1/models`, `/folders` and `/conversations`, and reading or deleting a conversation. An app only sees the chats it started through the API.
+- Chats started through the API show in the chat list with an **API** badge.
+- An OpenAPI description at `/api/v1/openapi.json`.
+- `FolderChat:Api:Urls` adds an address that serves only the API, for apps on other computers. Settings and your own chats aren't reachable there.
+
 ## [0.4.0] - 2026-10-28
 
 ### Added

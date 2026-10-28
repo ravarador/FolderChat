@@ -28,6 +28,9 @@ public sealed class ChatService(
     /// <summary>The most files one message can carry.</summary>
     public const int MaxAttachments = 10;
 
+    /// <summary>The longest extra instructions a message can carry.</summary>
+    public const int MaxInstructionsLength = 20_000;
+
     private const int TitleLength = 60;
 
     /// <summary>
@@ -49,6 +52,13 @@ public sealed class ChatService(
         if (text.Length > MaxMessageLength)
         {
             yield return new ChatFailed($"Messages are limited to {MaxMessageLength:N0} characters.", null);
+            yield break;
+        }
+
+        var instructions = request.Instructions?.Trim() ?? "";
+        if (instructions.Length > MaxInstructionsLength)
+        {
+            yield return new ChatFailed($"Instructions are limited to {MaxInstructionsLength:N0} characters.", null);
             yield break;
         }
 
@@ -107,7 +117,14 @@ public sealed class ChatService(
         if (isNew)
         {
             var title = MakeTitle(text.Length > 0 ? text : files[0].FileName);
-            conversation = new Conversation { Title = title, CreatedAt = now, UpdatedAt = now };
+            conversation = new Conversation
+            {
+                Title = title,
+                Source = request.Source,
+                ExternalUser = request.Source == ConversationSource.Api ? request.ExternalUser : null,
+                CreatedAt = now,
+                UpdatedAt = now,
+            };
             conversations.Add(conversation);
         }
         else
@@ -166,13 +183,15 @@ public sealed class ChatService(
             {
                 using (client)
                 {
-                    if (folderSession is not null)
+                    var system = SystemText(folderSession, instructions);
+                    if (system.Length > 0)
                     {
-                        history.Insert(0, new ChatMessage(ChatRole.System, folderSession.Instructions));
-                        if (folderSession.Effort == SearchEffort.Quick)
-                        {
-                            yield return await SearchForModelAsync(folderSession, history, text, ct);
-                        }
+                        history.Insert(0, new ChatMessage(ChatRole.System, system));
+                    }
+
+                    if (folderSession is { Effort: SearchEffort.Quick })
+                    {
+                        yield return await SearchForModelAsync(folderSession, history, text, ct);
                     }
 
                     await foreach (var chatEvent in RunModelAsync(client, history, folderSession, reply, provider, model, ct))
@@ -186,7 +205,7 @@ public sealed class ChatService(
                         logger.LogInformation("{Provider} model {Model} can't call tools; searching for it instead", provider.Name, model.ModelId);
                         folderSession.UseQuickSearch();
                         reply.Failure = null;
-                        history[0] = new ChatMessage(ChatRole.System, folderSession.Instructions);
+                        history[0] = new ChatMessage(ChatRole.System, SystemText(folderSession, instructions));
                         yield return new ChatActivity("This model can't search by itself, so FolderChat searched once for it.");
                         yield return await SearchForModelAsync(folderSession, history, text, ct);
                         await foreach (var chatEvent in RunModelAsync(client, history, folderSession, reply, provider, model, ct))
@@ -250,6 +269,10 @@ public sealed class ChatService(
             }
         }
     }
+
+    /// <summary>The system message: how to use the folders, then the caller's own instructions. Empty for neither.</summary>
+    internal static string SystemText(FolderSession? folderSession, string instructions) =>
+        string.Join("\n\n", new[] { folderSession?.Instructions ?? "", instructions }.Where(part => part.Length > 0));
 
     internal static string MakeTitle(string message)
     {

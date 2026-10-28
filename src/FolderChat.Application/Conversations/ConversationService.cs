@@ -110,5 +110,5 @@ public sealed class ConversationService(IConversationStore store, TimeProvider c
     private async Task<Conversation> FindAsync(Guid id, bool includeMessages, CancellationToken ct) =>
         await store.FindAsync(id, includeMessages, ct) ?? throw new NotFoundException("That conversation doesn't exist.");
 
-    private static ConversationSummaryDto ToSummary(Conversation c) => new(c.Id, c.Title, c.ModelId, c.UpdatedAt);
+    private static ConversationSummaryDto ToSummary(Conversation c) => new(c.Id, c.Title, c.ModelId, c.UpdatedAt, c.Source);
 }

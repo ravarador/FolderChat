@@ -23,6 +23,12 @@ public sealed class Conversation
     /// <summary>How hard this chat searches its folders.</summary>
     public SearchEffort Effort { get; set; } = SearchEffort.Standard;
 
+    /// <summary>Where the conversation was started: the chat page, or another app through the API.</summary>
+    public ConversationSource Source { get; set; } = ConversationSource.App;
+
+    /// <summary>For API conversations, the user ID the calling app sent, so it can tell its users' chats apart.</summary>
+    public string? ExternalUser { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }

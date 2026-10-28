@@ -1,3 +1,4 @@
+using FolderChat.Application.Api;
 using FolderChat.Application.Attachments;
 using FolderChat.Application.Chat;
 using FolderChat.Application.Conversations;
@@ -21,6 +22,9 @@ public static class DependencyInjection
         services.AddScoped<FolderAnswering>();
         services.AddScoped<FileSummarizer>();
         services.AddScoped<ChatService>();
+        services.AddScoped<ApiKeyService>();
+        services.AddScoped<ApiChatService>();
+        services.TryAddSingleton(new ApiDefaults());
         return services;
     }
 }

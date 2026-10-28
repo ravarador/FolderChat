@@ -50,6 +50,49 @@
         <p id="no-folders" class="text-body-secondary d-none">No folders yet. Add one here, or from Folders in any chat.</p>
     </section>
 
+    <section class="mt-5" aria-labelledby="api-keys-heading">
+        <h2 class="h4 mb-2" id="api-keys-heading">API keys</h2>
+        <p class="small text-body-secondary">
+            Your other apps can ask FolderChat questions through its REST API at <code>/api/v1</code>, from their server, with one of these keys.
+            Chats they start show in your chat list with an API badge.
+            <a href="https://github.com/ravarador/FolderChat/blob/main/docs/api.md" target="_blank" rel="noopener noreferrer">How to use the API</a>
+        </p>
+
+        <form id="api-key-form" class="row g-2 align-items-end mb-3" autocomplete="off">
+            <div class="col-md">
+                <label class="form-label small mb-1" for="api-key-name">Name</label>
+                <input id="api-key-name" class="form-control" maxlength="100" placeholder="Admin app" required />
+            </div>
+            <div class="col-md-auto">
+                <button id="api-key-create" class="btn btn-outline-primary" type="submit">Create key</button>
+            </div>
+        </form>
+
+        <div id="api-key-new" class="alert alert-success d-none" role="status">
+            <div class="fw-semibold mb-1">Copy this key now. FolderChat keeps only a fingerprint of it, so it can't be shown again.</div>
+            <div class="input-group">
+                <input id="api-key-secret" class="form-control font-monospace" readonly aria-label="New API key" />
+                <button id="api-key-copy" class="btn btn-success" type="button">Copy</button>
+            </div>
+        </div>
+
+        <div id="api-key-table" class="table-responsive d-none">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Key</th>
+                        <th scope="col">Created</th>
+                        <th scope="col">Last used</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody id="api-key-rows"></tbody>
+            </table>
+        </div>
+        <p id="no-api-keys" class="text-body-secondary d-none">No keys yet, so the API is closed.</p>
+    </section>
+
     <section class="mt-5" aria-labelledby="usage-heading">
         <div class="d-flex align-items-center gap-2 mb-2">
             <h2 class="h4 mb-0" id="usage-heading">Usage this month</h2>
@@ -170,4 +213,5 @@
     <script src="~/js/settings.js" asp-append-version="true"></script>
     <script src="~/js/folders.js" asp-append-version="true"></script>
     <script src="~/js/usage.js" asp-append-version="true"></script>
+    <script src="~/js/apikeys.js" asp-append-version="true"></script>
 }

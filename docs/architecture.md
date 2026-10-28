@@ -7,9 +7,9 @@ FolderChat is a local-first web app: an ASP.NET Core server runs on your compute
 ```
 src/
   FolderChat.Core            Entities: providers, conversations and their attachments, knowledge folders, files and passages. No dependencies.
-  FolderChat.Application     Use cases (ChatService, ProviderService, ConversationService, AttachmentService, FolderService) and the ports they need.
+  FolderChat.Application     Use cases (ChatService, ProviderService, ConversationService, AttachmentService, FolderService, ApiChatService, ApiKeyService) and the ports they need.
   FolderChat.Infrastructure  Adapters: provider SDKs, EF Core + SQLite, key encryption, file readers, the folder indexer and search.
-  FolderChat.Web             ASP.NET Core host: Razor pages, JSON API, the streaming endpoint.
+  FolderChat.Web             ASP.NET Core host: Razor pages, the app's JSON API, the streaming endpoint, the public REST API.
 tests/
   FolderChat.Tests           Unit, adapter and end-to-end API tests.
 ```
@@ -22,7 +22,7 @@ The Application layer defines these ports, and Infrastructure implements them:
 |---|---|---|
 | `IChatClientFactory` | Build a chat client for a provider and model | `ChatClientFactory`: the four adapters |
 | `IModelCatalog` | List a provider's models | `ModelCatalog` |
-| `IProviderStore`, `IConversationStore`, `IAttachmentStore`, `IKnowledgeStore` | Persistence | EF Core stores over SQLite |
+| `IProviderStore`, `IConversationStore`, `IAttachmentStore`, `IKnowledgeStore`, `IApiKeyStore` | Persistence | EF Core stores over SQLite |
 | `ISecretProtector` | Encrypt API keys | ASP.NET Core Data Protection |
 | `IProviderErrorDescriber` | Turn SDK exceptions into readable messages | `ProviderErrorDescriber` |
 | `ITextExtractor` | Read the text of a file | `TextExtractor`: PdfPig for PDFs, the Open XML SDK for Word, encoding detection for text |
@@ -129,6 +129,16 @@ The counts are saved on the reply (`InputTokens`, `OutputTokens`, `CachedInputTo
 ## Installing as an app
 
 `manifest.webmanifest` and the icons in `wwwroot/icons` make FolderChat installable, and `site.js` registers `sw.js`, a service worker. The worker handles page loads only: when the server doesn't answer, it shows `offline.html`, which says how to start FolderChat. It caches nothing else, so pages, scripts and the API always come from the server and an update can't leave an old script behind. Browsers allow service workers on `localhost` and `127.0.0.1` without HTTPS.
+
+## The REST API
+
+`/api/v1` is for other apps, called from their server. `V1Controller` sits beside the app's own controllers but is guarded differently: `[ApiKeyAuth]` checks `Authorization: Bearer fck_…` against the keys made in Settings, and `[IgnoreAntiforgeryToken]` turns off the cookie-based check, which a server-to-server caller can't pass. The app's own endpoints keep the anti-forgery check, so a key can't be used on them.
+
+`ApiKeyService` makes keys from 32 random bytes and stores only their SHA-256 hash and first 12 characters. A request's key is hashed and looked up, so the stored hashes are never compared character by character.
+
+`ApiChatService` turns a request into the same `ChatRequest` the chat page sends: it resolves provider, model and folder names to IDs, and fills in what's missing from the conversation being continued and then from `FolderChat:Api:Defaults`. The reply comes from `ChatService` unchanged, and is either collected into one JSON reply or passed on as Server-Sent Events. Conversations it starts have `Source = Api` and the caller's `ExternalUser`. The API only finds `Api` conversations, so the owner's own chats can't be read or continued with a key. Extra instructions go to the model as a system message after the folder instructions.
+
+`FolderChat:Api:Urls` adds listening addresses, and `ApiOnlyAddresses` answers only `/api/v1` on their ports. `Microsoft.AspNetCore.OpenApi` describes the v1 endpoints at `/api/v1/openapi.json`, from the XML comments on `V1Controller` and the contracts in `ApiContracts.cs`. Those contracts only gain fields; a breaking change would be `/api/v2`.
 
 ## Decisions
 

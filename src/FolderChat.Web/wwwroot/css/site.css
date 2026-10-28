@@ -63,6 +63,11 @@ body {
     font-size: 0.9rem;
 }
 
+.conversation-item .api-badge {
+    flex: 0 0 auto;
+    font-size: 0.65rem;
+}
+
 .conversation-item .actions {
     display: flex;
     gap: 0.125rem;

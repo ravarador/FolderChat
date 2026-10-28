@@ -25,6 +25,7 @@ Each folder contains the component's license file.
 | DocumentFormat.OpenXml (Open XML SDK, reads attached Word documents) | MIT |
 | Microsoft.EntityFrameworkCore.Sqlite | MIT |
 | Serilog.AspNetCore | Apache-2.0 |
+| Microsoft.AspNetCore.OpenApi and Microsoft.OpenApi (describe the REST API) | MIT |
 | xunit.v3 (tests only) | Apache-2.0 |
 
 Versions are pinned in `Directory.Packages.props`.

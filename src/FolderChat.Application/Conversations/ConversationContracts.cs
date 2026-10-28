@@ -4,7 +4,8 @@ using FolderChat.Core.Knowledge;
 
 namespace FolderChat.Application.Conversations;
 
-public sealed record ConversationSummaryDto(Guid Id, string Title, string? ModelId, DateTime UpdatedAt);
+/// <param name="Source">Where the conversation was started: App, or Api for another app.</param>
+public sealed record ConversationSummaryDto(Guid Id, string Title, string? ModelId, DateTime UpdatedAt, ConversationSource Source = ConversationSource.App);
 
 /// <param name="FolderIds">The knowledge folders this chat answers from. May include folders since removed.</param>
 /// <param name="Effort">How hard this chat searches its folders.</param>
