@@ -31,6 +31,10 @@ export FolderChat__DataDirectory="$HOME/folderchat-data"
 export ASPNETCORE_URLS="http://127.0.0.1:5090"
 ```
 
+## Hosting in IIS
+
+Under IIS, the site's bindings decide the port, so `Urls` and `FolderChat:Api:Urls` are ignored, and FolderChat needs a data folder its app pool can write to. See [Running FolderChat under IIS](deploy-iis.md).
+
 ## Letting apps on other computers use the API
 
 The REST API doesn't need FolderChat itself to be opened up: `FolderChat:Api:Urls` adds an address that serves only `/api/v1`, with API keys. See [Calling from another computer](api.md#calling-from-another-computer).
