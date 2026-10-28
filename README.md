@@ -2,8 +2,8 @@
 
 Chat with Claude, ChatGPT, DeepSeek, Kimi, GLM, Gemini and local models from one app that runs on your own computer.
 
-> **Status: v0.3 (early preview).** Chat, file attachments, and answers from whole folders of your files, with citations, work.
-> Polish such as token and cost display is next on the [roadmap](#roadmap).
+> **Status: v0.4 (early preview).** Chat, file attachments, answers from whole folders of your files with citations, token counts, and installing as an app work.
+> Single-file builds are next on the [roadmap](#roadmap).
 
 ## Why FolderChat
 
@@ -13,7 +13,7 @@ Chat with Claude, ChatGPT, DeepSeek, Kimi, GLM, Gemini and local models from one
 - **Local models too.** Point it at [Ollama](https://ollama.com) or LM Studio and nothing leaves your computer. The chat shows a badge saying where each message goes.
 - **Open source.** MIT licensed. Contributions welcome.
 
-## Features in v0.3
+## Features in v0.4
 
 - Model picker grouped by provider, loaded from each provider's own model list.
 - Streaming replies with Markdown, syntax-highlighted code and copy buttons. A Stop button keeps whatever arrived so far.
@@ -26,6 +26,8 @@ Chat with Claude, ChatGPT, DeepSeek, Kimi, GLM, Gemini and local models from one
   - OpenAI through the official OpenAI SDK
   - Any OpenAI-compatible API, with presets for DeepSeek, Kimi (Moonshot AI), GLM (Z.ai), Google Gemini, OpenRouter, Groq, xAI, Mistral and LM Studio
   - Ollama for local models
+- Token counts on every reply, a running total per chat, and this month's usage by model in Settings. FolderChat is free; the tokens are what your providers bill your API keys for.
+- Install it as an app, in its own window, from Chrome, Edge or Safari.
 - API keys encrypted at rest, and never sent back to the browser.
 - Light and dark themes.
 
@@ -107,7 +109,8 @@ Every provider sits behind the same `IChatClient` interface, so adding one is a 
 
 - **v0.2 Attachments** (done): attach PDF, Word and text files to a message.
 - **v0.3 Knowledge folders** (done): index a folder in the background and get answers with citations.
-- **v0.4 Polish:** token and cost display, a local-only mode, PWA install.
+- **v0.4 Polish** (done): token counts per reply, chat and month, and installing as an app.
+- **Later:** a local-only mode that keeps every message on this computer.
 - **v1.0 Releases:** single-file builds for Windows, macOS and Linux, plus a Docker image.
 
 ## Contributing

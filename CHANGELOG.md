@@ -4,6 +4,21 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-28
+
+### Added
+
+- Token counts on every reply: "1,240 in · 380 out" under the model's name, as the provider reported them. Hover for tokens read from the provider's cache, tokens spent thinking, and how full the model's context was.
+- When a reply used 80% or more of the model's context, it says so, since attachments and folder passages count toward it. This needs a provider that reports the model's context size, such as Anthropic.
+- A running total for the open chat in the chat header.
+- **Usage this month** in Settings: tokens read and written by each model this calendar month, in this computer's time zone.
+- Folders with summaries on show how many tokens the summaries used.
+- Install FolderChat as an app: **Install app** in Chrome and Edge, or **Add to Dock** in Safari, puts it in its own window with its own icon. When the app is opened while FolderChat isn't running, it says how to start it.
+
+### Changed
+
+- Replies count tokens read and written instead of only the tokens written.
+
 ## [0.3.0] - 2026-10-23
 
 ### Added

@@ -106,6 +106,25 @@ Limits: 20,000 files per folder, 50 MB per file, and about 3 million characters 
 
 In a folder's **Edit** dialog, you can have a model write a short summary of each file. Thorough answers use the summaries to pick which files to read. Writing them means the model reads the start of every file, which takes a while for big folders. With a cloud model, every file's start is sent to that provider, so a local model is suggested.
 
+## Token counts
+
+Each reply shows how many tokens the model read and wrote, as the provider reported them, such as "1,240 in · 380 out". Providers bill your API key by tokens, so these numbers are what your chats cost you. FolderChat itself is free, and doesn't know your providers' prices, so it shows tokens rather than money.
+
+- **Hover a reply's token count** to see the tokens read from the provider's cache (usually billed at a discount), the tokens the model spent thinking, and how much of the model's context the conversation used. A reply that used 80% or more of the context says so: attached files and folder passages count toward it, so starting a new chat leaves the model more room.
+- **The chat header** shows the open chat's total.
+- **Settings → Usage this month** adds up every model's tokens since the first of the month. Deleting a chat removes its replies from the totals.
+- A reply answered from folders at Standard or Thorough effort can take several rounds with the model. Its counts add the rounds up, because each round is billed.
+- Some OpenAI-compatible servers don't report tokens. Their replies show no count.
+
+## Installing as an app
+
+FolderChat can sit in your Start menu, Dock or app launcher and open in its own window:
+
+- **Chrome or Edge:** click **Install app** in FolderChat's top bar, or the install icon in the address bar.
+- **Safari on a Mac:** choose **File → Add to Dock**.
+
+The app is a window onto the server, so FolderChat still has to be running. If it isn't, the app shows how to start it. The app remembers the address it was installed from: if you start FolderChat on another port, open the new address in your browser and install it again.
+
 ## Choosing which models appear
 
 Each provider card in Settings lists its models:
@@ -121,7 +140,7 @@ git pull
 dotnet run --project src/FolderChat.Web
 ```
 
-Database changes are applied automatically when the app starts.
+Database changes are applied automatically when the app starts. An installed app picks up the new version the next time it opens.
 
 ## Troubleshooting
 
