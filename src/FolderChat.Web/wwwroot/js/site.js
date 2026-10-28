@@ -75,6 +75,31 @@
         new bootstrap.Toast(element, { delay: kind === "danger" ? 8000 : 4000 }).show();
     }
 
+    // Installing as an app. Browsers only allow it on localhost or HTTPS, so on another address nothing shows.
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(error => console.warn("FolderChat can't be installed as an app here.", error));
+    }
+
+    // Chrome and Edge offer installing through this event. Other browsers have their own menu item, or none.
+    const installButton = document.getElementById("install-app");
+    let installPrompt = null;
+    window.addEventListener("beforeinstallprompt", event => {
+        event.preventDefault();
+        installPrompt = event;
+        installButton?.classList.remove("d-none");
+    });
+    installButton?.addEventListener("click", async () => {
+        if (!installPrompt) return;
+        installPrompt.prompt();
+        await installPrompt.userChoice;
+        installPrompt = null;
+        installButton.classList.add("d-none");
+    });
+    window.addEventListener("appinstalled", () => {
+        installPrompt = null;
+        installButton?.classList.add("d-none");
+    });
+
     window.folderChat = {
         csrfToken,
         readError,

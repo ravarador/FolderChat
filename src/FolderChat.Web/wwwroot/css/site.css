@@ -132,6 +132,11 @@ body {
     cursor: help;
 }
 
+.chat-title:not(:empty) + .chat-usage {
+    padding-left: 0.5rem;
+    border-left: 1px solid var(--bs-border-color);
+}
+
 .messages {
     flex: 1 1 auto;
     overflow-y: auto;
@@ -632,6 +637,11 @@ body {
 
     .chat-usage {
         margin-left: auto;
+    }
+
+    .chat-title:not(:empty) + .chat-usage {
+        padding-left: 0;
+        border-left: 0;
     }
 
     /* The message box gets a line of its own, with the buttons under it. */

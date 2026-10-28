@@ -128,6 +128,29 @@ public sealed class ApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_app_can_be_installed()
+    {
+        var client = app.CreateClient();
+
+        var page = await client.GetStringAsync("/");
+        Assert.Contains("<link rel=\"manifest\" href=\"/manifest.webmanifest\"", page);
+
+        var manifestResponse = await client.GetAsync("/manifest.webmanifest");
+        Assert.Equal("application/manifest+json", manifestResponse.Content.Headers.ContentType?.MediaType);
+        var manifest = await manifestResponse.ReadJsonAsync();
+        Assert.Equal(("FolderChat", "standalone", "/"), (manifest.GetProperty("name").GetString(), manifest.GetProperty("display").GetString(), manifest.GetProperty("start_url").GetString()));
+        foreach (var icon in manifest.GetProperty("icons").EnumerateArray())
+        {
+            var iconResponse = await client.GetAsync(icon.GetProperty("src").GetString());
+            Assert.Equal("image/png", iconResponse.Content.Headers.ContentType?.MediaType);
+        }
+
+        var worker = await client.GetAsync("/sw.js");
+        Assert.Equal("text/javascript", worker.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("FolderChat isn't running", await client.GetStringAsync("/offline.html"));
+    }
+
+    [Fact]
     public async Task Usage_reports_this_months_tokens_by_model()
     {
         app.ChatClients.Build = (_, _) => new FakeChatClient { Usage = new UsageDetails { InputTokenCount = 8, OutputTokenCount = 2 } };
