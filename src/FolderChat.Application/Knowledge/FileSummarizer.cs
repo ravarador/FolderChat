@@ -47,7 +47,7 @@ public sealed class SummaryWriter(IChatClient client, Provider provider, IProvid
         """;
 
     /// <exception cref="ProviderCallFailedException">The model couldn't be reached, or refused. The message says why.</exception>
-    public async Task<string> SummarizeAsync(string path, string text, CancellationToken ct = default)
+    public async Task<FileSummary> SummarizeAsync(string path, string text, CancellationToken ct = default)
     {
         List<ChatMessage> messages =
         [
@@ -56,11 +56,19 @@ public sealed class SummaryWriter(IChatClient client, Provider provider, IProvid
         ];
 
         var summary = new StringBuilder();
+        long? input = null, output = null;
         try
         {
             await foreach (var update in client.GetStreamingResponseAsync(messages, cancellationToken: ct))
             {
                 summary.Append(update.Text);
+
+                // Providers report usage at different points, so the largest value seen wins, as in chats.
+                foreach (var usage in update.Contents.OfType<UsageContent>())
+                {
+                    input = Math.Max(input ?? 0, usage.Details.InputTokenCount ?? 0);
+                    output = Math.Max(output ?? 0, usage.Details.OutputTokenCount ?? 0);
+                }
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
@@ -74,7 +82,10 @@ public sealed class SummaryWriter(IChatClient client, Provider provider, IProvid
             throw new ProviderCallFailedException("the model returned an empty summary.");
         }
 
-        return result.Length <= MaxSummaryLength ? result : Truncate(result, MaxSummaryLength).TrimEnd() + "…";
+        return new FileSummary(
+            result.Length <= MaxSummaryLength ? result : Truncate(result, MaxSummaryLength).TrimEnd() + "…",
+            input,
+            output);
     }
 
     public void Dispose() => client.Dispose();
@@ -90,3 +101,6 @@ public sealed class SummaryWriter(IChatClient client, Provider provider, IProvid
         return text[..(char.IsHighSurrogate(text[length - 1]) ? length - 1 : length)];
     }
 }
+
+/// <summary>A file's summary, and the tokens it took when the provider reports them.</summary>
+public sealed record FileSummary(string Text, long? InputTokens, long? OutputTokens);

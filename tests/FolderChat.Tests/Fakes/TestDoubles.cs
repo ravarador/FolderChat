@@ -64,11 +64,13 @@ internal sealed class FakeFolderPicker : IFolderPicker
     }
 }
 
-internal sealed class ManualClock(DateTimeOffset start) : TimeProvider
+internal sealed class ManualClock(DateTimeOffset start, TimeZoneInfo? timeZone = null) : TimeProvider
 {
     private DateTimeOffset now = start;
 
     public override DateTimeOffset GetUtcNow() => now;
+
+    public override TimeZoneInfo LocalTimeZone => timeZone ?? base.LocalTimeZone;
 
     public void Advance(TimeSpan by) => now += by;
 }

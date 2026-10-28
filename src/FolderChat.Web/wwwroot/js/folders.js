@@ -164,6 +164,9 @@
         const parts = [`${count(folder.indexedFiles, "file")} can be searched`];
         if (folder.skippedFiles) parts.push(`${format(folder.skippedFiles)} skipped`);
         if (folder.summariesEnabled) parts.push(`${format(folder.summarizedFiles)} summarized`);
+        if (folder.summaryInputTokens || folder.summaryOutputTokens) {
+            parts.push(`summaries used ${compactNumbers.format(folder.summaryInputTokens)} tokens in, ${compactNumbers.format(folder.summaryOutputTokens)} out`);
+        }
         if (folder.lastScannedAt) parts.push(`checked ${timeAgo(folder.lastScannedAt)}`);
         return parts.join(" · ");
     }

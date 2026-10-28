@@ -40,4 +40,5 @@ public sealed record PickerProviderDto(
     bool IsLocal,
     IReadOnlyList<PickerModelDto> Models);
 
-public sealed record PickerModelDto(string ModelId, string Label);
+/// <param name="ContextWindow">The model's context size in tokens, when the provider reports it.</param>
+public sealed record PickerModelDto(string ModelId, string Label, int? ContextWindow);

@@ -27,9 +27,20 @@ public sealed class ConversationMessage
     /// <summary>The model that wrote an assistant message.</summary>
     public string? ModelId { get; set; }
 
+    /// <summary>Tokens the model read, summed over every round of a reply that searched folders.</summary>
     public long? InputTokens { get; set; }
 
+    /// <summary>Tokens the model wrote, summed over every round.</summary>
     public long? OutputTokens { get; set; }
+
+    /// <summary>The part of <see cref="InputTokens"/> the provider read from its prompt cache, when it says.</summary>
+    public long? CachedInputTokens { get; set; }
+
+    /// <summary>The part of <see cref="OutputTokens"/> the model spent thinking, when the provider says.</summary>
+    public long? ReasoningTokens { get; set; }
+
+    /// <summary>How much of the model's context the last round used: its input and output tokens together.</summary>
+    public long? ContextTokens { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

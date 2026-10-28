@@ -52,7 +52,7 @@ Because `ChatService` only sees `IChatClient`, adding a provider kind doesn't to
    - `delta`: one chunk of text
    - `activity`: something done on the way, such as a search of the folders
    - `sources`: the numbered folder passages the model was shown
-   - `completed`: the token counts and finish reason, or `error` instead
+   - `completed`: the token counts (read, written, cached, thinking, and the last round's total) and finish reason, or `error` instead
 5. The browser renders Markdown as it arrives, sanitized with DOMPurify.
 6. When the stream ends, the reply is saved:
    - Complete when the model finished.
@@ -120,6 +120,16 @@ Each conversation keeps its own folders (`Conversation.FolderIds`, a JSON list o
 
 Every passage the model is shown gets a number, and the instructions ask it to cite passages as [n]. The passages are sent to the browser in a `sources` event and saved with the reply as JSON, so the UI can link [n] to the exact passage, even after a reload. Search activity is streamed as `activity` events.
 
+## Token counts
+
+Providers report token counts in a `UsageContent` in the stream, some once at the end and some split across the start and end, so `ChatService` keeps the largest value of each count in a round. A reply with tool rounds adds the rounds up, because each round is billed. The last round's input and output together say how full the model's context ended up, which the browser compares with the model's context size when the provider reports it.
+
+The counts are saved on the reply (`InputTokens`, `OutputTokens`, `CachedInputTokens`, `ReasoningTokens`, `ContextTokens`). `GET /api/usage` adds up this month's replies by model for Settings. Summaries add their counts to their folder's `SummaryInputTokens` and `SummaryOutputTokens`.
+
+## Installing as an app
+
+`manifest.webmanifest` and the icons in `wwwroot/icons` make FolderChat installable, and `site.js` registers `sw.js`, a service worker. The worker handles page loads only: when the server doesn't answer, it shows `offline.html`, which says how to start FolderChat. It caches nothing else, so pages, scripts and the API always come from the server and an update can't leave an old script behind. Browsers allow service workers on `localhost` and `127.0.0.1` without HTTPS.
+
 ## Decisions
 
 - **Local web app, not a desktop app.** The server runs locally, so it can read any folder you choose, while the UI stays a normal web page that works on Windows, macOS and Linux. A thin desktop wrapper can come later.
@@ -134,4 +144,6 @@ Every passage the model is shown gets a number, and the instructions ask it to c
 - **The server opens the folder window.** Browsers keep folder paths from web pages, and a page could only read the files once, not keep them indexed. The server runs on the user's computer, so it shows the system's own window, as a desktop app would. Pasting a path still works where it can't.
 - **Folders belong to the chat.** Each chat chooses its own folders, rather than the app having one current folder, so a chat about contracts and a chat about reports can sit side by side, and reopening a chat brings back what it was answering from.
 - **Write-ahead logging.** The database uses WAL mode, so chats can search while a scan writes.
+- **Tokens, not money.** Providers report exact token counts with each reply, but not what it cost, and most don't publish prices through their APIs. So FolderChat shows tokens, which are always right, and leaves prices to the providers' own dashboards.
+- **A service worker that caches nothing.** The server is always on the same computer, so a cache would only add a way to serve an old script after an update. The worker exists to make FolderChat installable and to explain what to do when the server isn't running.
 - **Upload first, send later.** A file is read when it is attached, not when the message is sent, so a file that can't be read is reported right away and the chat request stays plain JSON.

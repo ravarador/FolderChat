@@ -8,6 +8,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken" />
+    <meta name="theme-color" content="#0d6efd" />
+    <link rel="manifest" href="~/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="~/icons/apple-touch-icon.png" />
     <title>@ViewData["Title"] · FolderChat</title>
     <script>
         // Apply the saved or system theme before the page paints, to avoid a flash.
@@ -34,6 +37,7 @@
                 <a class="nav-link @(page == "Settings" ? "active" : "")" asp-controller="Home" asp-action="Settings">Settings</a>
             </li>
         </ul>
+        <button id="install-app" class="btn btn-sm btn-outline-primary me-2 d-none" type="button" title="Add FolderChat to your Start menu, Dock or desktop, and open it in its own window">Install app</button>
         <button id="theme-toggle" class="btn btn-sm btn-outline-secondary" type="button" title="Switch light or dark theme">Theme</button>
     </nav>
 

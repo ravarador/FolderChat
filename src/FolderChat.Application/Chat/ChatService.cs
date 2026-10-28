@@ -224,7 +224,14 @@ public sealed class ChatService(
             {
                 var completed = await SaveReplyAsync(conversation, provider, model, replySequence, reply, MessageStatus.Complete, folderSession);
                 saved = true;
-                yield return new ChatCompleted(completed.Id, reply.InputTokens, reply.OutputTokens, reply.FinishReason?.Value);
+                yield return new ChatCompleted(
+                    completed.Id,
+                    reply.InputTokens,
+                    reply.OutputTokens,
+                    reply.FinishReason?.Value,
+                    reply.CachedInputTokens,
+                    reply.ReasoningTokens,
+                    reply.ContextTokens);
             }
         }
         finally
@@ -480,6 +487,9 @@ public sealed class ChatService(
             ModelId = model.ModelId,
             InputTokens = reply.InputTokens,
             OutputTokens = reply.OutputTokens,
+            CachedInputTokens = reply.CachedInputTokens,
+            ReasoningTokens = reply.ReasoningTokens,
+            ContextTokens = reply.ContextTokens,
             Sources = folderSession?.Sources.ToList() ?? [],
             CreatedAt = now,
         };
@@ -503,6 +513,13 @@ public sealed class ChatService(
         public long? InputTokens { get; private set; }
 
         public long? OutputTokens { get; private set; }
+
+        public long? CachedInputTokens { get; private set; }
+
+        public long? ReasoningTokens { get; private set; }
+
+        /// <summary>The last round's input and output: how full the model's context ended up.</summary>
+        public long? ContextTokens { get; private set; }
 
         /// <summary>Tool calls run so far.</summary>
         public int ToolCalls { get; set; }
@@ -528,6 +545,14 @@ public sealed class ChatService(
         {
             InputTokens = Sum(InputTokens, round.Input);
             OutputTokens = Sum(OutputTokens, round.Output);
+            CachedInputTokens = Sum(CachedInputTokens, round.CachedInput);
+            ReasoningTokens = Sum(ReasoningTokens, round.Reasoning);
+
+            // Each round re-sends the whole conversation so far, so the latest round is the fullest.
+            if (round.Input is not null || round.Output is not null)
+            {
+                ContextTokens = (round.Input ?? 0) + (round.Output ?? 0);
+            }
         }
 
         private static long? Sum(long? total, long? add) => add is null ? total : (total ?? 0) + add;
@@ -543,12 +568,18 @@ public sealed class ChatService(
 
         public long? Output { get; private set; }
 
+        public long? CachedInput { get; private set; }
+
+        public long? Reasoning { get; private set; }
+
         public void Add(ChatResponseUpdate update)
         {
             foreach (var usage in update.Contents.OfType<UsageContent>())
             {
                 Input = Max(Input, usage.Details.InputTokenCount);
                 Output = Max(Output, usage.Details.OutputTokenCount);
+                CachedInput = Max(CachedInput, usage.Details.CachedInputTokenCount);
+                Reasoning = Max(Reasoning, usage.Details.ReasoningTokenCount);
             }
         }
 

@@ -105,9 +105,15 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("CachedInputTokens")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("ContextTokens")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid>("ConversationId")
                         .HasColumnType("TEXT");
@@ -135,6 +141,9 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
                     b.Property<string>("ProviderName")
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("ReasoningTokens")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -240,9 +249,15 @@ namespace FolderChat.Infrastructure.Persistence.Migrations
                     b.Property<bool>("SummariesEnabled")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long>("SummaryInputTokens")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("SummaryModelId")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
+
+                    b.Property<long>("SummaryOutputTokens")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid?>("SummaryProviderId")
                         .HasColumnType("TEXT");

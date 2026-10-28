@@ -334,7 +334,10 @@ internal sealed class FolderScanner(
                 var file = pending[i];
                 try
                 {
-                    file.Summary = await writer.SummarizeAsync(file.RelativePath, await ReadStartAsync(file.Id, ct), ct);
+                    var summary = await writer.SummarizeAsync(file.RelativePath, await ReadStartAsync(file.Id, ct), ct);
+                    file.Summary = summary.Text;
+                    folder.SummaryInputTokens += summary.InputTokens ?? 0;
+                    folder.SummaryOutputTokens += summary.OutputTokens ?? 0;
                     await db.SaveChangesAsync(ct);
                     failures = 0;
                 }

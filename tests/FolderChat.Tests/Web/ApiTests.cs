@@ -128,6 +128,43 @@ public sealed class ApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_app_can_be_installed()
+    {
+        var client = app.CreateClient();
+
+        var page = await client.GetStringAsync("/");
+        Assert.Contains("<link rel=\"manifest\" href=\"/manifest.webmanifest\"", page);
+
+        var manifestResponse = await client.GetAsync("/manifest.webmanifest");
+        Assert.Equal("application/manifest+json", manifestResponse.Content.Headers.ContentType?.MediaType);
+        var manifest = await manifestResponse.ReadJsonAsync();
+        Assert.Equal(("FolderChat", "standalone", "/"), (manifest.GetProperty("name").GetString(), manifest.GetProperty("display").GetString(), manifest.GetProperty("start_url").GetString()));
+        foreach (var icon in manifest.GetProperty("icons").EnumerateArray())
+        {
+            var iconResponse = await client.GetAsync(icon.GetProperty("src").GetString());
+            Assert.Equal("image/png", iconResponse.Content.Headers.ContentType?.MediaType);
+        }
+
+        var worker = await client.GetAsync("/sw.js");
+        Assert.Equal("text/javascript", worker.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("FolderChat isn't running", await client.GetStringAsync("/offline.html"));
+    }
+
+    [Fact]
+    public async Task Usage_reports_this_months_tokens_by_model()
+    {
+        app.ChatClients.Build = (_, _) => new FakeChatClient { Usage = new UsageDetails { InputTokenCount = 8, OutputTokenCount = 2 } };
+        var client = await app.CreateSignedInClientAsync();
+        var providerId = await CreateProviderWithModelsAsync(client);
+        (await client.PostAsJsonAsync("/api/chat/stream", new { providerId, modelId = "model-a", message = "Hello" })).EnsureSuccessStatusCode();
+
+        var usage = await (await client.GetAsync("/api/usage")).ReadJsonAsync();
+
+        var row = Assert.Single(usage.GetProperty("models").EnumerateArray());
+        Assert.Equal(("model-a", 1, 8L, 2L), (row.GetProperty("modelId").GetString(), row.GetProperty("replies").GetInt32(), row.GetProperty("inputTokens").GetInt64(), row.GetProperty("outputTokens").GetInt64()));
+    }
+
+    [Fact]
     public async Task Conversations_can_be_renamed_and_deleted()
     {
         var client = await app.CreateSignedInClientAsync();

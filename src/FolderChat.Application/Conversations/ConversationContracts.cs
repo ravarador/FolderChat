@@ -29,9 +29,26 @@ public sealed record MessageDto(
     string? ModelId,
     long? InputTokens,
     long? OutputTokens,
+    long? CachedInputTokens,
+    long? ReasoningTokens,
+    long? ContextTokens,
     DateTime CreatedAt,
     IReadOnlyList<AttachmentSummaryDto> Attachments,
     IReadOnlyList<SourceDto> Sources);
+
+/// <summary>Tokens used by chat replies since <paramref name="Since"/>, by model.</summary>
+/// <param name="Since">The start of the period, in UTC: the first of this month, in this computer's time zone.</param>
+public sealed record UsageReportDto(DateTime Since, IReadOnlyList<UsageRowDto> Models);
+
+/// <param name="Replies">Replies that reported token counts.</param>
+public sealed record UsageRowDto(
+    string ProviderName,
+    string ModelId,
+    int Replies,
+    long InputTokens,
+    long OutputTokens,
+    long CachedInputTokens,
+    long ReasoningTokens);
 
 /// <summary>A folder passage a reply was given. The reply cites it as [<paramref name="Number"/>].</summary>
 /// <param name="Path">The file's path inside the folder.</param>

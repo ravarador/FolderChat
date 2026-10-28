@@ -18,6 +18,8 @@ public sealed record FolderDto(
     bool SummariesEnabled,
     Guid? SummaryProviderId,
     string? SummaryModelId,
+    long SummaryInputTokens,
+    long SummaryOutputTokens,
     ScanProgress? Scan);
 
 public sealed record FolderFileDto(
