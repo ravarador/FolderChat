@@ -1,6 +1,6 @@
 // The chat page: model picker, conversation list, each chat's folders, attached files, and streamed replies with their sources.
 (() => {
-    const { api, toast, csrfToken, readError } = window.folderChat;
+    const { api, toast, csrfToken, readError, icon } = window.folderChat;
     const markdown = window.folderChatMarkdown;
     const MODEL_KEY = "folderchat.model";
 
@@ -22,6 +22,7 @@
         folderChips: document.getElementById("folder-chips"),
         effortPicker: document.getElementById("effort-picker"),
         foldersButton: document.getElementById("folders-button"),
+        foldersButtonText: document.getElementById("folders-button-text"),
         folderMenu: document.getElementById("folder-menu"),
         newFolderModal: document.getElementById("new-folder-modal"),
         newFolderForm: document.getElementById("new-folder-form"),
@@ -69,6 +70,7 @@
     const previewModal = bootstrap.Modal.getOrCreateInstance(els.previewModal);
     const newFolderModal = bootstrap.Modal.getOrCreateInstance(els.newFolderModal);
     const compactNumber = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
+    const monthHeading = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
     let previewRequest = 0;
     let previewReveal = null; // what the preview's "Show in folder" button does, when it's shown
 
@@ -169,7 +171,7 @@
         els.folderBar.classList.toggle("d-none", chosen.length === 0);
         els.effortPicker.value = state.chatEffort;
         els.effortPicker.title = els.effortPicker.selectedOptions[0]?.title ?? "";
-        els.foldersButton.textContent = chosen.length ? `Folders (${chosen.length})` : "Folders";
+        els.foldersButtonText.textContent = chosen.length ? `Folders (${chosen.length})` : "Folders";
         renderFolderMenu();
         watchFolders();
     }
@@ -192,7 +194,7 @@
         const detail = document.createElement("span");
         detail.className = "folder-chip-detail";
         detail.textContent = describeFolder(folder);
-        const remove = iconButton(`Stop answering from ${folder.name}`, "✕", () => toggleFolder(folder.id, false));
+        const remove = iconButton(`Stop answering from ${folder.name}`, "x", () => toggleFolder(folder.id, false));
         remove.title = "Remove from this chat";
         remove.disabled = Boolean(state.streaming);
         chip.append(name, detail, remove);
@@ -360,12 +362,12 @@
 
     function renderConversationList() {
         const filter = els.search.value.trim().toLowerCase();
-        els.list.replaceChildren();
+        const groups = new Map(); // heading → items, in the order the conversations come (newest first)
 
         for (const conversation of state.conversations) {
             if (filter && !conversation.title.toLowerCase().includes(filter)) continue;
 
-            const item = document.createElement("li");
+            const item = document.createElement("div");
             item.className = "conversation-item" + (conversation.id === state.currentId ? " active" : "");
             item.title = conversation.title;
 
@@ -376,31 +378,64 @@
             const actions = document.createElement("span");
             actions.className = "actions";
             actions.append(
-                iconButton("Rename", "✎", () => renameConversation(conversation)),
-                iconButton("Delete", "✕", () => deleteConversation(conversation)));
+                iconButton("Rename", "pencil", () => renameConversation(conversation)),
+                iconButton("Delete", "x", () => deleteConversation(conversation)));
 
             item.append(title);
             if (conversation.source === "Api") {
                 // Started by another app through the REST API.
                 const badge = document.createElement("span");
-                badge.className = "badge rounded-pill text-bg-secondary api-badge";
+                badge.className = "badge rounded-pill api-badge";
                 badge.textContent = "API";
                 item.title = `${conversation.title} (started by another app through the API)`;
                 item.append(badge);
             }
             item.append(actions);
             item.addEventListener("click", () => openConversation(conversation.id));
-            els.list.append(item);
+
+            const heading = dayHeading(conversation.updatedAt);
+            if (!groups.has(heading)) groups.set(heading, []);
+            groups.get(heading).push(item);
+        }
+
+        els.list.replaceChildren();
+        for (const [heading, items] of groups) {
+            const label = document.createElement("div");
+            label.className = "conversation-group";
+            label.textContent = heading;
+            els.list.append(label, ...items);
+        }
+        if (groups.size === 0) {
+            const none = document.createElement("div");
+            none.className = "conversation-none";
+            none.textContent = filter ? "No chats match." : "Your chats will show here.";
+            els.list.append(none);
         }
     }
 
-    function iconButton(label, glyph, onClick) {
+    /** Groups the chat list: Today, Yesterday, Previous 7 days, Previous 30 days, then by month. */
+    function dayHeading(updatedAt) {
+        if (!updatedAt) return "Today"; // a chat started on this page
+        // The server sends UTC; a time without a zone is read as UTC too, not as local time.
+        const date = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(updatedAt) ? updatedAt : `${updatedAt}Z`);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const days = Math.floor((today - date) / 86_400_000) + 1; // 0 for any time today
+        if (date >= today) return "Today";
+        if (days <= 1) return "Yesterday";
+        if (days <= 7) return "Previous 7 days";
+        if (days <= 30) return "Previous 30 days";
+        return monthHeading.format(date);
+    }
+
+    /** A small button showing one of the page's icons, such as "x" or "pencil". */
+    function iconButton(label, iconName, onClick) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "icon-btn";
         button.title = label;
         button.setAttribute("aria-label", label);
-        button.textContent = glyph;
+        button.append(icon(iconName));
         button.addEventListener("click", event => {
             event.stopPropagation();
             onClick();
@@ -414,6 +449,8 @@
             const [conversation] = state.conversations.splice(index, 1);
             state.conversations.unshift(conversation);
         }
+        const moved = state.conversations[0];
+        if (moved?.id === conversationId) moved.updatedAt = new Date().toISOString(); // shows under Today
     }
 
     async function openConversation(id) {
@@ -439,6 +476,7 @@
 
             history.replaceState(null, "", `#${conversation.id}`);
             renderConversationList();
+            window.folderChat.closeSidebar();
             updateEmptyState();
             scrollToBottom(true);
         } catch (error) {
@@ -456,6 +494,7 @@
         renderChatTokens();
         history.replaceState(null, "", location.pathname);
         renderConversationList();
+        window.folderChat.closeSidebar();
         updateEmptyState();
         els.prompt.focus();
     }
@@ -622,7 +661,7 @@
             link.textContent = "Add a provider in Settings";
             els.emptyText.replaceChildren("No models are set up yet. ", link, ".");
         } else {
-            els.emptyText.textContent = "Pick a model above and send a message. Attach files, or choose Folders to answer from your own documents.";
+            els.emptyText.textContent = "Pick a model below and send a message. Attach files, or choose Folders to answer from your own documents.";
         }
     }
 
@@ -724,7 +763,7 @@
         open.append(name, detail);
         chip.append(open);
         if (onRemove) {
-            const remove = iconButton(`Remove ${item.name}`, "✕", onRemove);
+            const remove = iconButton(`Remove ${item.name}`, "x", onRemove);
             remove.title = "Remove";
             chip.append(remove);
         }
@@ -978,7 +1017,7 @@
                     started = true;
                     if (event.isNewConversation) {
                         state.currentId = event.conversationId;
-                        state.conversations.unshift({ id: event.conversationId, title: event.title, modelId: selection.modelId });
+                        state.conversations.unshift({ id: event.conversationId, title: event.title, modelId: selection.modelId, updatedAt: new Date().toISOString() });
                         els.title.textContent = event.title;
                         history.replaceState(null, "", `#${event.conversationId}`);
                     } else {

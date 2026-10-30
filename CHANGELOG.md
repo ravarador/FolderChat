@@ -4,6 +4,17 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+
+- A redesigned look. The top bar is gone: the sidebar holds your chats, then Settings and the theme switch at the bottom. Chats are grouped by day (Today, Yesterday, Previous 7 days, and so on).
+- One message box holds the folders, attached files, the model picker and a round Send button.
+- Settings lists its sections in the sidebar: Providers, Knowledge folders, API keys and Usage.
+- Teal colours in place of Bootstrap blue, in both themes and on the app icon, and icons on the buttons.
+
+### Fixed
+
+- On phones, the chat list was hidden with no way to open it. A menu button now opens it as a drawer.
+
 ## [0.5.0] - 2026-10-28
 
 ### Added

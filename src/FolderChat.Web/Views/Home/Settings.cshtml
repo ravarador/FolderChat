@@ -5,9 +5,27 @@
     var canChooseFolders = FolderPicker.CanOpenFor(Context);
 }
 
+@section Sidebar {
+    <nav class="settings-nav" aria-label="Settings sections">
+        <a class="sidebar-link" asp-controller="Home" asp-action="Index"><svg class="icon"><use href="#i-message-square" /></svg>Back to chats</a>
+        <div class="conversation-group">Settings</div>
+        <a class="sidebar-link" href="#providers-heading"><svg class="icon"><use href="#i-cpu" /></svg>Providers</a>
+        <a class="sidebar-link" href="#folders-heading"><svg class="icon"><use href="#i-folder" /></svg>Knowledge folders</a>
+        <a class="sidebar-link" href="#api-keys-heading"><svg class="icon"><use href="#i-key-round" /></svg>API keys</a>
+        <a class="sidebar-link" href="#usage-heading"><svg class="icon"><use href="#i-chart-column" /></svg>Usage</a>
+    </nav>
+}
+
+<header class="chat-header settings-header">
+    <button class="icon-btn menu-btn" type="button" data-sidebar-open aria-label="Open menu" title="Chats and settings">
+        <svg class="icon"><use href="#i-menu" /></svg>
+    </button>
+    <span class="chat-title">Settings</span>
+</header>
+
 <div class="settings-page container py-4">
     <div class="d-flex align-items-center gap-2 mb-2">
-        <h1 class="h4 mb-0">Providers</h1>
+        <h1 class="h4 mb-0" id="providers-heading">Providers</h1>
         <button id="add-provider" class="btn btn-primary btn-sm ms-auto" type="button">Add provider</button>
     </div>
     <p class="small text-body-secondary">
