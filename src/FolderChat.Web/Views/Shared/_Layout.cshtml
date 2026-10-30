@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken" />
-    <meta name="theme-color" content="#0d6efd" />
+    <meta name="theme-color" content="#0f766e" />
     <link rel="manifest" href="~/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="~/icons/apple-touch-icon.png" />
     <title>@ViewData["Title"] · FolderChat</title>
@@ -27,23 +27,40 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
-    <nav class="app-nav navbar navbar-expand border-bottom px-3 py-1">
-        <a class="navbar-brand fw-semibold" asp-controller="Home" asp-action="Index">FolderChat</a>
-        <ul class="navbar-nav me-auto">
-            <li class="nav-item">
-                <a class="nav-link @(page == "Index" ? "active" : "")" asp-controller="Home" asp-action="Index">Chat</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link @(page == "Settings" ? "active" : "")" asp-controller="Home" asp-action="Settings">Settings</a>
-            </li>
-        </ul>
-        <button id="install-app" class="btn btn-sm btn-outline-primary me-2 d-none" type="button" title="Add FolderChat to your Start menu, Dock or desktop, and open it in its own window">Install app</button>
-        <button id="theme-toggle" class="btn btn-sm btn-outline-secondary" type="button" title="Switch light or dark theme">Theme</button>
-    </nav>
+    <partial name="_Icons" />
 
-    <main class="app-main">
-        @RenderBody()
-    </main>
+    <div class="app-shell">
+        <aside id="sidebar" class="app-sidebar" aria-label="FolderChat">
+            <div class="sidebar-top">
+                <a class="brand" asp-controller="Home" asp-action="Index">
+                    <span class="brand-mark" aria-hidden="true"><svg class="icon"><use href="#i-folder-open" /></svg></span>
+                    <span class="brand-name">FolderChat</span>
+                </a>
+                <button class="icon-btn sidebar-close" type="button" data-sidebar-close aria-label="Close menu" title="Close menu">
+                    <svg class="icon"><use href="#i-x" /></svg>
+                </button>
+            </div>
+
+            @RenderSection("Sidebar", required: false)
+
+            <div class="sidebar-footer">
+                <a class="sidebar-link @(page == "Settings" ? "active" : "")" asp-controller="Home" asp-action="Settings">
+                    <svg class="icon"><use href="#i-settings" /></svg>Settings
+                </a>
+                <button id="install-app" class="sidebar-link d-none" type="button" title="Add FolderChat to your Start menu, Dock or desktop, and open it in its own window">
+                    <svg class="icon"><use href="#i-download" /></svg>Install app
+                </button>
+                <button id="theme-toggle" class="sidebar-link" type="button" title="Switch light or dark theme">
+                    <svg class="icon theme-icon-dark"><use href="#i-moon" /></svg><svg class="icon theme-icon-light"><use href="#i-sun" /></svg><span class="theme-label">Dark theme</span>
+                </button>
+            </div>
+        </aside>
+        <div class="sidebar-scrim" data-sidebar-close aria-hidden="true"></div>
+
+        <main class="app-main">
+            @RenderBody()
+        </main>
+    </div>
 
     <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
 
