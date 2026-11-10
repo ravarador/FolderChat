@@ -10,7 +10,14 @@
         if (darkSheet) darkSheet.disabled = !dark;
     }
 
+    /** Names the theme the toggle switches to. */
+    function labelThemeToggle() {
+        const label = document.querySelector("#theme-toggle .theme-label");
+        if (label) label.textContent = root.dataset.bsTheme === "dark" ? "Light theme" : "Dark theme";
+    }
+
     applyCodeTheme();
+    labelThemeToggle();
     document.getElementById("theme-toggle")?.addEventListener("click", () => {
         const next = root.dataset.bsTheme === "dark" ? "light" : "dark";
         root.dataset.bsTheme = next;
@@ -20,7 +27,35 @@
             // Storage is unavailable (private window); the theme just won't be remembered.
         }
         applyCodeTheme();
+        labelThemeToggle();
     });
+
+    // On small screens the sidebar slides in over the page.
+    function openSidebar() {
+        document.body.classList.add("sidebar-open");
+        document.querySelector("#sidebar [data-sidebar-close]")?.focus();
+    }
+
+    function closeSidebar() {
+        document.body.classList.remove("sidebar-open");
+    }
+
+    document.querySelectorAll("[data-sidebar-open]").forEach(button => button.addEventListener("click", openSidebar));
+    document.querySelectorAll("[data-sidebar-close], #sidebar a").forEach(element => element.addEventListener("click", closeSidebar));
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && document.body.classList.contains("sidebar-open")) closeSidebar();
+    });
+
+    /** One of the page's icons (see _Icons.cshtml), as an inline SVG element. */
+    function icon(name) {
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("class", "icon");
+        svg.setAttribute("aria-hidden", "true");
+        const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+        use.setAttribute("href", `#i-${name}`);
+        svg.append(use);
+        return svg;
+    }
 
     // Sent with every change request. The server rejects changes without it.
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? "";
@@ -101,7 +136,9 @@
     });
 
     window.folderChat = {
+        closeSidebar,
         csrfToken,
+        icon,
         readError,
         toast,
         api: {
